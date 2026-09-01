@@ -73,9 +73,11 @@ from app_constants import (
     ensure_dir,
     get_icon_path,
 )
+import html
+import time
 from delegates import GRID_H, GRID_W, VideoItemDelegate
 from download_worker import DownloadWorker
-from logger import app_logger
+from logger import app_logger, clean_ansi
 from models import VideoListModel, VideoRoles
 from scan_worker import ScanWorker
 from session_store import load_session, save_session
@@ -395,11 +397,35 @@ class YoutubeDownloaderApp(QMainWindow):
 
         log_vbox.addLayout(log_head)
 
-        self.log_edit = QPlainTextEdit()
+        self.log_edit = QTextEdit()
         self.log_edit.setReadOnly(True)
-        self.log_edit.setMaximumBlockCount(2000)
         self.log_edit.setFixedHeight(140)
-        self.log_edit.setStyleSheet("QPlainTextEdit { background-color: #050507; color: #00E676; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; border: 1px solid #1a1a24; border-radius: 4px; padding: 4px; }")
+        self.log_edit.setStyleSheet("""
+            QTextEdit {
+                background-color: #060609;
+                color: #e2e8f0;
+                font-family: 'Consolas', 'Segoe UI', monospace;
+                font-size: 11px;
+                border: 1px solid #1a1a26;
+                border-radius: 4px;
+                padding: 4px 6px;
+            }
+            QScrollBar:vertical {
+                width: 6px;
+                background: #060609;
+                border-radius: 3px;
+            }
+            QScrollBar::handle:vertical {
+                background: #252538;
+                border-radius: 3px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #00E5FF;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
         log_vbox.addWidget(self.log_edit)
 
         left_vbox.addWidget(self.log_panel)
@@ -578,8 +604,54 @@ class YoutubeDownloaderApp(QMainWindow):
         self.statusBar().addPermanentWidget(self.btn_help)
 
     def append_log(self, text):
-        if hasattr(self, "log_edit") and text:
-            self.log_edit.appendPlainText(text.rstrip())
+        if not hasattr(self, "log_edit") or not text:
+            return
+        clean = clean_ansi(text).strip()
+        if not clean:
+            return
+
+        ts = time.strftime("%H:%M:%S")
+        escaped = html.escape(clean)
+
+        # Tự động phát hiện phân loại log để gắn Badge & Màu sắc chuyên nghiệp
+        u = clean.upper()
+        if "[ERROR]" in u or "[DOWNLOAD ERROR]" in u or "EXCEPTION" in u or ("ERR" in u and "ERROR" in u):
+            badge = '<span style="background:#5c1010; color:#ff8080; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">✖ ERROR</span>'
+            msg_color = "#ff9999"
+        elif "[WARNING]" in u or "[WARN]" in u or "[FALLBACK]" in u or "[RETRY" in u:
+            badge = '<span style="background:#4d2c00; color:#ffc107; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">⚠ WARN</span>'
+            msg_color = "#ffe082"
+        elif "SUCCESS" in u or "COMPLETED" in u or "[DONE]" in u or "THÀNH CÔNG" in u:
+            badge = '<span style="background:#003d19; color:#00E676; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">✔ SUCCESS</span>'
+            msg_color = "#b9f6ca"
+        elif "[DOUYIN" in u:
+            badge = '<span style="background:#3b1259; color:#e040fb; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">💎 DOUYIN</span>'
+            msg_color = "#ea80fc"
+        elif "[PATCH]" in u or "[BILIBILI" in u:
+            badge = '<span style="background:#0d3356; color:#40c4ff; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">⚡ BILIBILI</span>'
+            msg_color = "#80d8ff"
+        elif "[SCAN" in u:
+            badge = '<span style="background:#003847; color:#00E5FF; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">🔍 SCAN</span>'
+            msg_color = "#84ffff"
+        elif "[LUỒNG TẢI]" in u or "[TURBO]" in u or "[AV1" in u:
+            badge = '<span style="background:#281047; color:#b388ff; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">🚀 TURBO</span>'
+            msg_color = "#d1c4e9"
+        elif "[COOKIE" in u:
+            badge = '<span style="background:#262359; color:#8c9eff; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">🍪 COOKIE</span>'
+            msg_color = "#c5cae9"
+        elif "[DOWNLOAD]" in u or "[PROGRESS]" in u:
+            badge = '<span style="background:#004033; color:#1de9b6; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">📥 DOWNLOAD</span>'
+            msg_color = "#a7ffeb"
+        else:
+            badge = '<span style="background:#1c1c24; color:#90a4ae; padding:1px 6px; border-radius:3px; font-size:10px;">ℹ INFO</span>'
+            msg_color = "#cfd8dc"
+
+        line_html = f'<div style="margin:2px 0; line-height:16px;"><span style="color:#546e7a; font-size:10px; margin-right:4px;">[{ts}]</span> {badge} <span style="color:{msg_color}; font-family:\'Consolas\', \'Segoe UI\', monospace; font-size:11px;">{escaped}</span></div>'
+
+        self.log_edit.append(line_html)
+        sb = self.log_edit.verticalScrollBar()
+        if sb:
+            sb.setValue(sb.maximum())
 
     def copy_logs(self):
         if hasattr(self, "log_edit"):
