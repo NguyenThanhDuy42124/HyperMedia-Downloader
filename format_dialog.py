@@ -38,7 +38,7 @@ class FormatSelectorDialog(QDialog):
     def __init__(self, item, parent=None):
         super().__init__(parent)
         self.item = item
-        self.setWindowTitle("🎬 Chọn Định Dạng Chi Tiết (Format ID)")
+        self.setWindowTitle("Chọn Định Dạng Chi Tiết (Format ID)")
         self.setMinimumWidth(520)
         self.setup_ui()
 
@@ -47,7 +47,7 @@ class FormatSelectorDialog(QDialog):
         vbox.setSpacing(12)
 
         title = self.item.get("title", "Video")
-        lbl_title = QLabel(f"<b>📌 Video:</b> {title[:65]}")
+        lbl_title = QLabel(f"<b>Video:</b> {title[:65]}")
         vbox.addWidget(lbl_title)
 
         formats = self.item.get("formats_list") or []
@@ -57,7 +57,7 @@ class FormatSelectorDialog(QDialog):
         audio_formats = [f for f in formats if f.get("acodec") != "none" and f.get("format_id")]
 
         # Group Video
-        gb_video = QGroupBox("📹 Chọn Đoạn Hình Ảnh (Video Stream)")
+        gb_video = QGroupBox("Chọn Đoạn Hình Ảnh (Video Stream)")
         v_box = QVBoxLayout(gb_video)
         self.video_cb = QComboBox()
 
@@ -75,11 +75,11 @@ class FormatSelectorDialog(QDialog):
             vip_tag = ""
             if "1080" in str(res):
                 if fid in ("100050", "100051"):
-                    vip_tag = " [👑 1080P 高码率 - Cần VIP]"
+                    vip_tag = " [1080P 高码率 - Cần VIP]"
                 elif fid in ("100026", "100024") or "AV1" in codec:
-                    vip_tag = " [⚡ 1080P 高清 - Miễn Phí]"
+                    vip_tag = " [1080P 高清 - Miễn Phí]"
 
-            # Nhãn dạng: 1080p • 30fps • H.264/AVC • 2.83 GB (ID: 100050) [👑 1080P 高码率 - Cần VIP]
+            # Nhãn dạng: 1080p • 30fps • H.264/AVC • 2.83 GB (ID: 100050)
             label_parts = [p for p in [res, fps, codec, ext] if p]
             label = " • ".join(label_parts) + f"{size_str} (ID: {fid}){vip_tag}"
             self.video_cb.addItem(label, fid)
@@ -94,7 +94,7 @@ class FormatSelectorDialog(QDialog):
         vbox.addWidget(gb_video)
 
         # Group Audio
-        gb_audio = QGroupBox("🎵 Chọn Đoạn Âm Thanh (Audio Stream)")
+        gb_audio = QGroupBox("Chọn Đoạn Âm Thanh (Audio Stream)")
         a_box = QVBoxLayout(gb_audio)
         self.audio_cb = QComboBox()
 
@@ -130,11 +130,14 @@ class FormatSelectorDialog(QDialog):
         # Buttons OK / Cancel
         btn_box = QHBoxLayout()
         btn_box.addStretch()
-        btn_ok = QPushButton("✔ Chọn Định Dạng Này")
+        btn_cancel = QPushButton(" Hủy")
+        from lucide_icons import get_lucide_icon
+        btn_cancel.setIcon(get_lucide_icon("x", "#ffffff", 14))
+        btn_cancel.clicked.connect(self.reject)
+        btn_ok = QPushButton(" Áp Dụng")
+        btn_ok.setIcon(get_lucide_icon("check", "#ffffff", 14))
         btn_ok.setStyleSheet("background:#00B0FF;color:white;font-weight:bold;padding:6px 16px;")
         btn_ok.clicked.connect(self.accept)
-        btn_cancel = QPushButton("Hủy")
-        btn_cancel.clicked.connect(self.reject)
         btn_box.addWidget(btn_cancel)
         btn_box.addWidget(btn_ok)
         vbox.addLayout(btn_box)

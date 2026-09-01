@@ -13,10 +13,10 @@ from PySide6.QtWidgets import QComboBox, QStyledItemDelegate
 from models import VideoRoles
 from lucide_icons import draw_lucide_icon
 
-CARD_W = 310
-CARD_H = 285
-GRID_W = 316
-GRID_H = 291
+CARD_W = 320
+CARD_H = 300
+GRID_W = 328
+GRID_H = 308
 
 # Palette
 CARD_BG = QColor("#1f1f24")
@@ -73,15 +73,15 @@ class VideoItemDelegate(QStyledItemDelegate):
         h = card.height()
         thumb = QRect(x + 4, y + 4, w - 8, (w - 8) * 9 // 16)
         check = QRect(thumb.right() - 26, thumb.y() + 6, 20, 20)
-        title = QRect(x + 10, thumb.bottom() + 4, w - 20, 32)
-        status = QRect(x + 10, title.bottom() + 2, w - 20, 38)
-        progress = QRect(x + 10, status.bottom() + 4, w - 20, 6)
+        title = QRect(x + 8, thumb.bottom() + 6, w - 16, 36)
+        status = QRect(x + 8, title.bottom() + 4, w - 16, 42)
+        progress = QRect(x + 8, status.bottom() + 5, w - 16, 6)
         row_y = card.bottom() - 26
-        type_ = QRect(x + 10, row_y, 48, 22)
-        res = QRect(type_.right() + 4, row_y, 62, 22)
-        quality = QRect(res.right() + 4, row_y, 90, 22)
-        retry = QRect(card.right() - 52, row_y, 22, 22)
-        delete = QRect(card.right() - 26, row_y, 22, 22)
+        type_ = QRect(x + 8, row_y, 52, 22)
+        res = QRect(type_.right() + 4, row_y, 66, 22)
+        quality = QRect(res.right() + 4, row_y, 105, 22)
+        retry = QRect(card.right() - 50, row_y, 22, 22)
+        delete = QRect(card.right() - 25, row_y, 22, 22)
         return {
             "card": card,
             "check": check,
@@ -287,33 +287,48 @@ class VideoItemDelegate(QStyledItemDelegate):
     def _draw_title(self, painter, rect, text):
         fm = QFontMetrics(painter.font())
         lh = fm.height()
-        line1 = ""
-        for word in text.split(" "):
-            trial = (line1 + " " + word).strip()
-            if fm.horizontalAdvance(trial) > rect.width():
-                break
-            line1 = trial
-        rest = ""
-        if line1:
-            rest = text[len(line1):].strip()
-            if rest:
-                rest = fm.elidedText(
-                    rest, Qt.TextElideMode.ElideRight, rect.width()
-                )
-        else:
-            line1 = fm.elidedText(
-                text, Qt.TextElideMode.ElideRight, rect.width()
+        full_text = (text or "Unknown").strip()
+        if not full_text:
+            return
+
+        max_w = rect.width()
+        # Nếu toàn bộ vừa 1 dòng
+        if fm.horizontalAdvance(full_text) <= max_w:
+            painter.drawText(
+                QRect(rect.x(), rect.y(), max_w, lh),
+                Qt.AlignmentFlag.AlignVCenter,
+                full_text,
             )
+            return
+
+        # Tìm điểm cắt tốt nhất cho dòng 1
+        cut_idx = len(full_text)
+        for i in range(1, len(full_text) + 1):
+            if fm.horizontalAdvance(full_text[:i]) > max_w:
+                cut_idx = i - 1
+                break
+
+        # Nếu có khoảng trắng gần cut_idx thì ưu tiên ngắt theo từ
+        space_idx = full_text[:cut_idx].rfind(" ")
+        if space_idx > cut_idx // 2:
+            line1 = full_text[:space_idx].strip()
+            rest = full_text[space_idx:].strip()
+        else:
+            line1 = full_text[:cut_idx].strip()
+            rest = full_text[cut_idx:].strip()
+
+        line2 = fm.elidedText(rest, Qt.TextElideMode.ElideRight, max_w)
+
         painter.drawText(
-            QRect(rect.x(), rect.y(), rect.width(), lh),
+            QRect(rect.x(), rect.y(), max_w, lh),
             Qt.AlignmentFlag.AlignVCenter,
             line1,
         )
-        if rest:
+        if line2:
             painter.drawText(
-                QRect(rect.x(), rect.y() + lh, rect.width(), lh),
+                QRect(rect.x(), rect.y() + lh + 1, max_w, lh),
                 Qt.AlignmentFlag.AlignVCenter,
-                rest,
+                line2,
             )
 
     def _draw_check(self, painter, rect, checked):
@@ -385,15 +400,7 @@ class VideoItemDelegate(QStyledItemDelegate):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor("#b71c1c"))
         painter.drawRoundedRect(QRectF(rect), 4, 4)
-        painter.setPen(QPen(QColor("#ffffff"), 2))
-        painter.drawLine(
-            QPointF(rect.x() + 6, rect.y() + 6),
-            QPointF(rect.right() - 6, rect.bottom() - 6),
-        )
-        painter.drawLine(
-            QPointF(rect.right() - 6, rect.y() + 6),
-            QPointF(rect.x() + 6, rect.bottom() - 6),
-        )
+        draw_lucide_icon(painter, rect.adjusted(3, 3, -3, -3), "trash-2", "#ffffff")
         painter.restore()
 
     # ---------- interaction ----------

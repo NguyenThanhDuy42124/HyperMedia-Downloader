@@ -80,7 +80,7 @@ from models import VideoListModel, VideoRoles
 from scan_worker import ScanWorker
 from session_store import load_session, save_session
 from thumbnail_loader import ThumbnailPool
-from lucide_icons import get_lucide_icon
+from lucide_icons import get_lucide_icon, get_lucide_pixmap
 
 
 class FilterProxy(QSortFilterProxyModel):
@@ -342,13 +342,14 @@ class YoutubeDownloaderApp(QMainWindow):
         float_layout.addWidget(self.bulk_codec_cb)
 
         btn_apply = QPushButton(" Áp dụng")
-        btn_apply.setIcon(get_lucide_icon("sparkles", "#ffffff", 14))
-        btn_apply.setStyleSheet("background:#FF9800; color:white;")
+        btn_apply.setIcon(get_lucide_icon("check", "#ffffff", 14))
+        btn_apply.setStyleSheet("background:#FF9800; color:white; font-weight:bold;")
         btn_apply.clicked.connect(self.apply_bulk_changes)
         float_layout.addWidget(btn_apply)
 
-        self.btn_dl_selected = QPushButton(" 🚀 TẢI ĐÃ CHỌN")
-        self.btn_dl_selected.setStyleSheet("background:#0284c7; color:white; font-size:11px; padding:5px 12px;")
+        self.btn_dl_selected = QPushButton(" TẢI ĐÃ CHỌN")
+        self.btn_dl_selected.setIcon(get_lucide_icon("download", "#ffffff", 14))
+        self.btn_dl_selected.setStyleSheet("background:#0284c7; color:white; font-weight:bold; font-size:11px; padding:5px 12px;")
         self.btn_dl_selected.clicked.connect(self.download_selected)
         float_layout.addWidget(self.btn_dl_selected)
 
@@ -363,13 +364,16 @@ class YoutubeDownloaderApp(QMainWindow):
         log_vbox.setSpacing(4)
 
         log_head = QHBoxLayout()
-        lbl_log = QLabel("🖥️ Nhật Ký Hoạt Động (Live Terminal Logs)")
+        lbl_log_icon = QLabel()
+        lbl_log_icon.setPixmap(get_lucide_pixmap("terminal", "#00E5FF", 14))
+        log_head.addWidget(lbl_log_icon)
+        lbl_log = QLabel("Nhật Ký Hoạt Động (Live Terminal Logs)")
         lbl_log.setStyleSheet("color:#00E5FF;font-weight:bold;font-size:11px;")
         log_head.addWidget(lbl_log)
         log_head.addStretch(1)
 
         btn_copy_log = QPushButton(" Copy")
-        btn_copy_log.setIcon(get_lucide_icon("sparkles", "#cccccc", 12))
+        btn_copy_log.setIcon(get_lucide_icon("layers", "#cccccc", 12))
         btn_copy_log.setFixedSize(78, 24)
         btn_copy_log.setStyleSheet("font-size:10px;background:#1a1a24;color:#ccc;border-radius:3px;")
         btn_copy_log.clicked.connect(self.copy_logs)
@@ -382,7 +386,8 @@ class YoutubeDownloaderApp(QMainWindow):
         btn_clear_log.clicked.connect(lambda: self.log_edit.clear())
         log_head.addWidget(btn_clear_log)
 
-        self.btn_toggle_log = QPushButton("▼ Ẩn Log")
+        self.btn_toggle_log = QPushButton(" Ẩn Log")
+        self.btn_toggle_log.setIcon(get_lucide_icon("chevron-down", "#ffffff", 12))
         self.btn_toggle_log.setFixedSize(85, 24)
         self.btn_toggle_log.setStyleSheet("font-size:10px;background:#0284c7;color:white;font-weight:bold;border-radius:3px;")
         self.btn_toggle_log.clicked.connect(self.toggle_log_panel)
@@ -511,7 +516,7 @@ class YoutubeDownloaderApp(QMainWindow):
         pv.addWidget(line2)
 
         # 3. QUẢN LÝ THƯ MỤC & SỬA HÀNG LOẠT
-        pv.addWidget(QLabel("<b>🔍 Tìm Kiếm & Lưu Trữ</b>"))
+        pv.addWidget(QLabel("<b>Tìm Kiếm & Lưu Trữ</b>"))
         self.search_inp = QLineEdit()
         self.search_inp.setPlaceholderText("Tìm theo tiêu đề...")
         self.search_inp.textChanged.connect(lambda t: self.proxy.set_filter(t))
@@ -530,10 +535,12 @@ class YoutubeDownloaderApp(QMainWindow):
         pv.addStretch(1)
 
         row = QHBoxLayout()
-        btn_all = QPushButton("Chọn hết")
+        btn_all = QPushButton(" Chọn hết")
+        btn_all.setIcon(get_lucide_icon("check-circle-2", "#00E5FF", 14))
         btn_all.clicked.connect(lambda: self.toggle_all(True))
         row.addWidget(btn_all)
-        btn_none = QPushButton("Bỏ chọn")
+        btn_none = QPushButton(" Bỏ chọn")
+        btn_none.setIcon(get_lucide_icon("x-circle", "#B0BEC5", 14))
         btn_none.clicked.connect(lambda: self.toggle_all(False))
         row.addWidget(btn_none)
         pv.addLayout(row)
@@ -552,19 +559,19 @@ class YoutubeDownloaderApp(QMainWindow):
         vbox.addWidget(splitter, 1)
 
         # ---------- Status bar: Đường dẫn thư mục + Live Log + Hướng dẫn ----------
-        self.lbl_path = QLabel(f"  📂 Thư mục lưu: {self.save_folder}")
+        self.lbl_path = QLabel(f"  Thư mục lưu: {self.save_folder}")
         self.lbl_path.setStyleSheet("color:#00E5FF;font-weight:bold;font-size:11px;")
         self.lbl_path.setToolTip("Click đúp để mở thư mục lưu.")
         self.lbl_path.mouseDoubleClickEvent = lambda e: self.open_folder()
         self.statusBar().addWidget(self.lbl_path)
 
-        self.btn_log_bar = QPushButton(" 🖥️ Live Logs")
+        self.btn_log_bar = QPushButton(" Live Logs")
         self.btn_log_bar.setIcon(get_lucide_icon("terminal", "#00E5FF", 14))
         self.btn_log_bar.setStyleSheet("background:#1a1a24;color:#00E5FF;font-weight:bold;")
         self.btn_log_bar.clicked.connect(self.toggle_log_panel)
         self.statusBar().addPermanentWidget(self.btn_log_bar)
 
-        self.btn_help = QPushButton(" 📖 Hướng dẫn")
+        self.btn_help = QPushButton(" Hướng dẫn")
         self.btn_help.setIcon(get_lucide_icon("help-circle", "#ffffff", 14))
         self.btn_help.setFixedWidth(115)
         self.btn_help.clicked.connect(lambda: HelpDialog(self).exec())
@@ -584,7 +591,12 @@ class YoutubeDownloaderApp(QMainWindow):
             is_vis = self.log_panel.isVisible()
             self.log_panel.setVisible(not is_vis)
             if hasattr(self, "btn_toggle_log"):
-                self.btn_toggle_log.setText("▲ Hiện Log" if is_vis else "▼ Ẩn Log")
+                if is_vis:
+                    self.btn_toggle_log.setText(" Hiện Log")
+                    self.btn_toggle_log.setIcon(get_lucide_icon("chevron-up", "#ffffff", 12))
+                else:
+                    self.btn_toggle_log.setText(" Ẩn Log")
+                    self.btn_toggle_log.setIcon(get_lucide_icon("chevron-down", "#ffffff", 12))
 
     def connect_signals(self):
         self.delegate.deleteRequested.connect(self.delete_item)
@@ -696,14 +708,14 @@ class YoutubeDownloaderApp(QMainWindow):
     def on_scan_done(self, msg):
         self._scanning = False
         self.scan_btn.setEnabled(True)
-        self.scan_btn.setText("🔍 Quét")
+        self.scan_btn.setText(" Quét")
         self.status_label.setText(msg)
         self.save_session_now()
 
     def on_scan_error(self, e):
         self._scanning = False
         self.scan_btn.setEnabled(True)
-        self.scan_btn.setText("🔍 Quét")
+        self.scan_btn.setText(" Quét")
         self.status_label.setText("Lỗi quét")
         QMessageBox.warning(self, "Lỗi", e)
 
