@@ -59,7 +59,7 @@ class MyLogger:
         clean_msg = clean_ansi(msg)
         if "[download]" in clean_msg:
             if "Got error" in clean_msg or "Retrying" in clean_msg or "more expected" in clean_msg or "Giving up" in clean_msg:
-                print(f"[RETRY LOG] 🔄 {clean_msg}")
+                print(f"[RETRY LOG] {clean_msg}")
             elif "%" in clean_msg and self.callback:
                 try:
                     self.callback(clean_msg)
@@ -71,10 +71,10 @@ class MyLogger:
         if clean_msg:
             self.warnings.append(clean_msg)
             _LOGGER.warning("[YTDLP] %s", clean_msg)
-            print(f"[WARNING] ⚠️ {clean_msg}")
+            print(f"[WARNING] {clean_msg}")
 
     def error(self, msg):
         clean_msg = clean_ansi(msg)
         if clean_msg:
             _LOGGER.error("[YTDLP] %s", clean_msg)
-            print(f"[ERROR] ❌ {clean_msg}")
+            print(f"[ERROR] {clean_msg}")

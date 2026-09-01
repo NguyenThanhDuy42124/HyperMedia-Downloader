@@ -94,7 +94,16 @@ File sau khi build sẽ nằm gọn gàng tại thư mục: `dist/HyperMedia_Dow
 
 ---
 
+## 👨‍💻 Tác Giả (Author)
+
+* **GitHub:** [@NguyenThanhDuy42124 (Nguyễn Thanh Duy)](https://github.com/NguyenThanhDuy42124)
+* **Repository:** [https://github.com/NguyenThanhDuy42124/HyperMedia-Downloader](https://github.com/NguyenThanhDuy42124/HyperMedia-Downloader)
+* **Zalo hỗ trợ:** `0334674017`
+
+---
+
 ## 📜 Giấy Phép (License)
 
 Dự án được phân phối dưới giấy phép mã nguồn mở MIT License.
 Mọi đóng góp (Pull Request, Issue, Feature Request) đều được hoan nghênh!
+

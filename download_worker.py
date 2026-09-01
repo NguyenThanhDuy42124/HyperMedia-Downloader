@@ -122,7 +122,7 @@ class DownloadWorker(QThread):
         if self.options.get("format_id"):
             ydl_opts["format"] = self.options["format_id"]
             ydl_opts["merge_output_format"] = "mp4"
-            print(f"[Download] 🎯 Áp dụng Format ID tùy chọn: {self.options['format_id']}")
+            print(f"[Download] Áp dụng Format ID tùy chọn: {self.options['format_id']}")
             return
 
         file_type = self.options.get("file_type", "mp4")
@@ -192,7 +192,7 @@ class DownloadWorker(QThread):
             resolution = parse_resolution(self.options.get("resolution", "best"))
             res_fmt = f"[height<={resolution}]" if resolution else ""
             fmt = f"bestvideo[vcodec^=av01]{res_fmt}+bestaudio/bestvideo{res_fmt}+bestaudio/best"
-            safe_print("[AV1 SMART TRICK] ⚡ Tải luồng AV1 siêu nhẹ (Miễn Phí Khỏi VIP) -> FFmpeg tự recode MP4...")
+            safe_print("[AV1 SMART TRICK] Tải luồng AV1 siêu nhẹ (Miễn Phí Khỏi VIP) -> FFmpeg tự recode MP4...")
             ydl_opts.update({
                 "format": fmt,
                 "merge_output_format": "mp4",
@@ -213,7 +213,7 @@ class DownloadWorker(QThread):
 
     def download_with_format_fallback(self, opts):
         n_threads = opts.get("concurrent_fragment_downloads", 4)
-        safe_print(f"[LUỒNG TẢI] 🚀 Kích hoạt {n_threads} luồng tải song song (Anti-Bot Mode)...")
+        safe_print(f"[LUỒNG TẢI] Kích hoạt {n_threads} luồng tải song song (Anti-Bot Mode)...")
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([self.url])
@@ -221,7 +221,7 @@ class DownloadWorker(QThread):
             err_str = str(e) or ""
             is_bilibili = "bilibili.com" in self.url.lower()
             if is_bilibili and ("702450" in err_str or "bytes read" in err_str or "more expected" in err_str or "Giving up after" in err_str):
-                safe_print("[AV1 AUTO-FALLBACK] ⚡ Bilibili báo 702450 (Chặn luồng VIP H.264)! Tự động chuyển sang luồng 1080P AV1 Miễn Phí...")
+                safe_print("[AV1 AUTO-FALLBACK] Bilibili báo 702450 (Chặn luồng VIP H.264)! Tự động chuyển sang luồng 1080P AV1 Miễn Phí...")
                 av1_opts = dict(opts)
                 av1_opts.pop("http_chunk_size", None)
                 av1_opts["concurrent_fragment_downloads"] = 1
@@ -236,7 +236,7 @@ class DownloadWorker(QThread):
 
             is_socket_drop = "bytes read" in err_str or "more expected" in err_str or "Giving up after" in err_str
             if is_socket_drop and (opts.get("http_chunk_size") or opts.get("concurrent_fragment_downloads", 1) > 1):
-                safe_print("[FALLBACK] ⚠️ CDN ngắt kết nối đa luồng. Tự động chuyển sang Đơn Luồng Trực Tiếp 100% Ổn Định...")
+                safe_print("[FALLBACK] CDN ngắt kết nối đa luồng. Tự động chuyển sang Đơn Luồng Trực Tiếp 100% Ổn Định...")
                 safe_opts = dict(opts)
                 safe_opts.pop("http_chunk_size", None)
                 safe_opts["concurrent_fragment_downloads"] = 1
@@ -393,7 +393,7 @@ class DownloadWorker(QThread):
                                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
                             }, allow_redirects=True, timeout=4)
                             if chk.status_code == 200:
-                                safe_print(f"[Douyin 1080p UNLOCK] 🚀 Tìm thấy luồng Full HD 1080p gốc ({vid})! Đang tải...")
+                                safe_print(f"[Douyin 1080p UNLOCK] Tìm thấy luồng Full HD 1080p gốc ({vid})! Đang tải...")
                                 opts = self.get_base_opts(out_path)
                                 opts["http_headers"] = {
                                     "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"

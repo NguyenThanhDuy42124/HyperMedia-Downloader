@@ -51,10 +51,10 @@ def refresh_bilibili_ticket():
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             if data.get("code") == 0:
-                print("[COOKIE AUTO-REFRESH] 🔑 Cấp mới bili_ticket Bilibili thành công!")
+                print("[COOKIE AUTO-REFRESH] Cấp mới bili_ticket Bilibili thành công!")
                 return True
     except Exception as e:
-        print(f"[COOKIE AUTO-REFRESH] Thử refresh bili_ticket: {e}")
+        print(f"[COOKIE AUTO-REFRESH] Lỗi kết nối làm mới bili_ticket: {e}")
     return False
 
 def get_live_browser_cookies(browser_name="chrome"):
@@ -76,7 +76,7 @@ def get_live_browser_cookies(browser_name="chrome"):
                         name = cookie.name
                         value = cookie.value
                         f.write(f"{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{value}\n")
-            print(f"[COOKIE AUTO-REFRESH] 🌐 Đã trích xuất Cookies Bilibili sống từ trình duyệt {browser_name} thành công!")
+            print(f"[COOKIE AUTO-REFRESH] Đã trích xuất Cookies Bilibili sống từ trình duyệt {browser_name} thành công!")
             return True
     except Exception as e:
         print(f"[COOKIE AUTO-REFRESH] Không đọc được cookies từ {browser_name}: {e}")

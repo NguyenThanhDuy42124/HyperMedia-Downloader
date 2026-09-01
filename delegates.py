@@ -206,7 +206,7 @@ class VideoItemDelegate(QStyledItemDelegate):
                 "": "Sẵn sàng",
                 "queued": "Đang chờ...",
                 "downloading": "Đang tải...",
-                "done": "✔ Hoàn tất 100%",
+                "done": "Hoàn tất 100%",
                 "error": "Lỗi tải",
                 "stopped": "Đã dừng",
                 "skipped": "Đã có sẵn",

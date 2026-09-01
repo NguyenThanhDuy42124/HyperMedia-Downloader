@@ -113,7 +113,7 @@ def extract_browser_cookies(browser_name="chrome"):
                 sec_str = "TRUE" if is_sec else "FALSE"
                 f.write(f"{host}\t{flag}\t{path}\t{sec_str}\t{exp}\t{name}\t{val}\n")
 
-        print(f"[SafeCookie] ✅ Đã tự động giải mã & trích xuất {len(bilibili_cookies)} cookies Bilibili sang cookies.txt!")
+        print(f"[SafeCookie] Đã tự động giải mã & trích xuất {len(bilibili_cookies)} cookies Bilibili sang cookies.txt!")
         return True, f"Đã trích xuất {len(bilibili_cookies)} cookies Bilibili thành công!"
     except Exception as e:
         return False, f"Lỗi đọc SQLite: {e}"

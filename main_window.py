@@ -132,33 +132,33 @@ class VideoListView(QListView):
 class HelpDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Hướng dẫn")
-        self.resize(640, 520)
+        self.setWindowTitle("Hướng dẫn sử dụng")
+        self.resize(660, 530)
         layout = QVBoxLayout(self)
         txt = QTextEdit()
         txt.setReadOnly(True)
+        txt.setOpenExternalLinks(True)
         txt.setText("""
-        <h2>Hướng dẫn sử dụng</h2>
-        <p><b>1. Quét & chọn:</b><br>
-        Dán link (YouTube / Bilibili, video đơn hoặc playlist/space) rồi bấm Quét.<br>
-        Kéo chuột trên list để <b>khoanh vùng chọn</b> nhiều video cùng lúc. Checkbox trên card cũng bật/tắt chọn từng video.<br>
-        Ô <i>Giới hạn</i> = 0 (Toàn bộ) để đọc hết danh sách của trang.</p>
+        <h2>Hướng Dẫn Sử Dụng HyperMedia Downloader Pro</h2>
+        <p><b>1. Quét & Chọn Video:</b><br>
+        Dán link (YouTube, Bilibili, Douyin, TikTok - video đơn, playlist, kênh hoặc nhiều link dán cùng lúc) rồi bấm <b>Quét</b>.<br>
+        Kéo chuột trên danh sách để khoanh vùng chọn nhiều video cùng lúc hoặc tích chọn trên từng thẻ video.<br>
+        Ô <i>Giới hạn</i> = 0 (Toàn bộ) để quét hết danh sách của trang.</p>
 
-        <p><b>2. Tải xuống:</b><br>
-        Chọn video rồi bấm <b>TẢI XUỐNG</b>. Mặc định tải song song 3 video (đổi trong ô <i>Song song</i>).<br>
-        Bấm <b>⏹ Dừng</b> để dừng tải; <b>🔁 Thử lỗi</b> để tải lại các item bị lỗi/dừng.<br>
-        Tích <i>Bỏ qua file đã có</i> để không tải lại file đã tồn tại.<br>
-        Nhấn Delete để xóa các item đang chọn; nút 🗑 trên card xóa từng video.</p>
+        <p><b>2. Tải Xuống Đa Luồng Siêu Tốc:</b><br>
+        Chọn video cần tải rồi bấm <b>TẢI ĐÃ CHỌN</b> hoặc <b>Tải Tất Cả</b>. Mặc định tải song song 3 video.<br>
+        Bấm <b>Dừng tải</b> để dừng; <b>Thử lại file lỗi</b> để tải lại các video bị ngắt kết nối.<br>
+        Tích <i>Bỏ qua file đã có</i> để tránh tải trùng lặp.</p>
 
-        <p><b>3. BiliBili:</b><br>
-        Trang space thường bị chặn (412/352) khi quét ẩn danh — hãy đăng nhập bilibili.com
-        rồi export cookies mới và Import vào tool, hoặc chọn Cookie: Chrome/Edge/Firefox.<br>
-        Chất lượng tối đa bị giới hạn khi chưa đăng nhập (4K cần VIP).</p>
+        <p><b>3. Bilibili & Douyin 1080p:</b><br>
+        - <b>Bilibili:</b> Tự động bypass chống chặn WBI. Hỗ trợ import cookies hoặc trích xuất cookie trình duyệt tự động.<br>
+        - <b>Douyin:</b> Tự động mở khóa luồng 1080p Full HD gốc không watermark / không logo.</p>
 
-        <p><b>4. Phím tắt:</b><br>
-        Delete: xóa chọn · Ctrl+A: chọn hết · Ctrl+D: bỏ chọn · Ctrl+F: tìm kiếm · Esc: dừng tải.</p>
+        <p><b>4. Phím Tắt Tiện Lợi:</b><br>
+        Delete: Xóa thẻ chọn · Ctrl+A: Chọn hết · Ctrl+D: Bỏ chọn · Ctrl+F: Tìm kiếm · Esc: Dừng tải.</p>
 
-        <p>author by @daotacvosi</p>
+        <hr style="border:0; border-top:1px solid #333344; margin:15px 0;">
+        <p style="color:#00E5FF; font-size:12px;"><b>Tác giả:</b> <a href="https://github.com/NguyenThanhDuy42124" style="color:#00E5FF; text-decoration:underline;"><b>NguyenThanhDuy42124 (Nguyễn Thanh Duy)</b></a> &nbsp;|&nbsp; <b>Zalo:</b> 0334674017</p>
         """)
         layout.addWidget(txt)
 
@@ -321,7 +321,7 @@ class YoutubeDownloaderApp(QMainWindow):
         float_layout.setContentsMargins(12, 6, 12, 6)
         float_layout.setSpacing(8)
 
-        self.lbl_float_count = QLabel("🎯 Đã chọn: 0")
+        self.lbl_float_count = QLabel("Đã chọn: 0")
         self.lbl_float_count.setStyleSheet("color: #00E5FF; font-size: 12px; font-weight: bold;")
         float_layout.addWidget(self.lbl_float_count)
 
@@ -479,7 +479,7 @@ class YoutubeDownloaderApp(QMainWindow):
         pv.addWidget(line1)
 
         # 2. CẤU HÌNH BĂNG THÔNG & AV1 SMART TRICK
-        self.advanced_group = QGroupBox("🛠 Cài đặt nâng cao")
+        self.advanced_group = QGroupBox("Cài đặt nâng cao")
         self.advanced_group.setCheckable(True)
         self.advanced_group.setChecked(False) # Collapsed by default
         self.advanced_group.setStyleSheet("""
@@ -515,7 +515,7 @@ class YoutubeDownloaderApp(QMainWindow):
         chk_lay.addWidget(self.chunk_cb)
         adv_layout.addLayout(chk_lay)
 
-        self.chk_av1_trick = QCheckBox("⚡ AV1 Smart (Khỏi cần VIP)")
+        self.chk_av1_trick = QCheckBox("AV1 Smart (Khỏi cần VIP)")
         self.chk_av1_trick.setChecked(True)
         self.chk_av1_trick.setToolTip("Tự động kéo luồng AV1 1.66GB siêu nhẹ (Không cần VIP Cookies Bilibili) -> FFmpeg tự recode MP4.")
         adv_layout.addWidget(self.chk_av1_trick)
@@ -616,34 +616,34 @@ class YoutubeDownloaderApp(QMainWindow):
         # Tự động phát hiện phân loại log để gắn Badge & Màu sắc chuyên nghiệp
         u = clean.upper()
         if "[ERROR]" in u or "[DOWNLOAD ERROR]" in u or "EXCEPTION" in u or ("ERR" in u and "ERROR" in u):
-            badge = '<span style="background:#5c1010; color:#ff8080; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">✖ ERROR</span>'
+            badge = '<span style="background:#5c1010; color:#ff8080; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">ERROR</span>'
             msg_color = "#ff9999"
         elif "[WARNING]" in u or "[WARN]" in u or "[FALLBACK]" in u or "[RETRY" in u:
-            badge = '<span style="background:#4d2c00; color:#ffc107; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">⚠ WARN</span>'
+            badge = '<span style="background:#4d2c00; color:#ffc107; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">WARN</span>'
             msg_color = "#ffe082"
         elif "SUCCESS" in u or "COMPLETED" in u or "[DONE]" in u or "THÀNH CÔNG" in u:
-            badge = '<span style="background:#003d19; color:#00E676; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">✔ SUCCESS</span>'
+            badge = '<span style="background:#003d19; color:#00E676; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">SUCCESS</span>'
             msg_color = "#b9f6ca"
         elif "[DOUYIN" in u:
-            badge = '<span style="background:#3b1259; color:#e040fb; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">💎 DOUYIN</span>'
+            badge = '<span style="background:#3b1259; color:#e040fb; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">DOUYIN</span>'
             msg_color = "#ea80fc"
         elif "[PATCH]" in u or "[BILIBILI" in u:
-            badge = '<span style="background:#0d3356; color:#40c4ff; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">⚡ BILIBILI</span>'
+            badge = '<span style="background:#0d3356; color:#40c4ff; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">BILIBILI</span>'
             msg_color = "#80d8ff"
         elif "[SCAN" in u:
-            badge = '<span style="background:#003847; color:#00E5FF; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">🔍 SCAN</span>'
+            badge = '<span style="background:#003847; color:#00E5FF; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">SCAN</span>'
             msg_color = "#84ffff"
         elif "[LUỒNG TẢI]" in u or "[TURBO]" in u or "[AV1" in u:
-            badge = '<span style="background:#281047; color:#b388ff; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">🚀 TURBO</span>'
+            badge = '<span style="background:#281047; color:#b388ff; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">TURBO</span>'
             msg_color = "#d1c4e9"
         elif "[COOKIE" in u:
-            badge = '<span style="background:#262359; color:#8c9eff; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">🍪 COOKIE</span>'
+            badge = '<span style="background:#262359; color:#8c9eff; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">COOKIE</span>'
             msg_color = "#c5cae9"
         elif "[DOWNLOAD]" in u or "[PROGRESS]" in u:
-            badge = '<span style="background:#004033; color:#1de9b6; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">📥 DOWNLOAD</span>'
+            badge = '<span style="background:#004033; color:#1de9b6; padding:1px 6px; border-radius:3px; font-weight:bold; font-size:10px;">DOWNLOAD</span>'
             msg_color = "#a7ffeb"
         else:
-            badge = '<span style="background:#1c1c24; color:#90a4ae; padding:1px 6px; border-radius:3px; font-size:10px;">ℹ INFO</span>'
+            badge = '<span style="background:#1c1c24; color:#90a4ae; padding:1px 6px; border-radius:3px; font-size:10px;">INFO</span>'
             msg_color = "#cfd8dc"
 
         line_html = f'<div style="margin:2px 0; line-height:16px;"><span style="color:#546e7a; font-size:10px; margin-right:4px;">[{ts}]</span> {badge} <span style="color:{msg_color}; font-family:\'Consolas\', \'Segoe UI\', monospace; font-size:11px;">{escaped}</span></div>'
@@ -689,7 +689,7 @@ class YoutubeDownloaderApp(QMainWindow):
         dialog = FormatSelectorDialog(item, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             selected_fmt = dialog.get_selected_format()
-            print(f"[FORMAT SELECTOR] 🎯 Đã chọn Format ID: {selected_fmt} cho video {uid}")
+            print(f"[FORMAT SELECTOR] Đã chọn Format ID: {selected_fmt} cho video {uid}")
             self.model.set_field(uid, VideoRoles.FormatId, selected_fmt)
             self.model.set_field(uid, VideoRoles.Resolution, f"Custom ({selected_fmt})")
             self.view.viewport().update()
@@ -835,9 +835,9 @@ class YoutubeDownloaderApp(QMainWindow):
         sel = len(self.view.selectionModel().selectedIndexes())
         self.lbl_count.setText(f"Đã chọn: {sel}/{total}")
         if hasattr(self, "lbl_float_count"):
-            self.lbl_float_count.setText(f"🎯 Đã chọn: <b>{sel}</b>")
+            self.lbl_float_count.setText(f"Đã chọn: <b>{sel}</b>")
         if hasattr(self, "btn_dl_selected"):
-            self.btn_dl_selected.setText(f" 🚀 TẢI ĐÃ CHỌN ({sel})" if sel > 0 else " 🚀 TẢI ĐÃ CHỌN")
+            self.btn_dl_selected.setText(f" TẢI ĐÃ CHỌN ({sel})" if sel > 0 else " TẢI ĐÃ CHỌN")
         if hasattr(self, "btn_dl_all"):
             self.btn_dl_all.setText(f" Tải Tất Cả ({total})" if total > 0 else " Tải Tất Cả")
         if hasattr(self, "floating_panel"):
@@ -938,7 +938,7 @@ class YoutubeDownloaderApp(QMainWindow):
         if not uids:
             QMessageBox.warning(self, "Cảnh báo", "Danh sách đang trống, hãy quét video trước!")
             return
-        print(f"[DOWNLOAD ALL] 🚀 Bắt đầu tải TẤT CẢ {len(uids)} video trong danh sách...")
+        print(f"[DOWNLOAD ALL] Bắt đầu tải TẤT CẢ {len(uids)} video trong danh sách...")
         self._start_queue(uids)
 
     def download_selected(self):
@@ -946,7 +946,7 @@ class YoutubeDownloaderApp(QMainWindow):
         if not uids:
             QMessageBox.warning(self, "Cảnh báo", "Hãy chọn ít nhất 1 video để tải (bấm chọn thẻ card hoặc bấm 'Chọn hết').")
             return
-        print(f"[DOWNLOAD SELECTED] 🎯 Bắt đầu tải {len(uids)} video ĐÃ CHỌN...")
+        print(f"[DOWNLOAD SELECTED] Bắt đầu tải {len(uids)} video ĐÃ CHỌN...")
         self._start_queue(uids)
 
     def retry_errors(self):
@@ -972,7 +972,7 @@ class YoutubeDownloaderApp(QMainWindow):
                         self._pending_uids.append(uid)
                         added += 1
             if added > 0:
-                print(f"[QUEUE UPDATE] ➕ Đã thêm {added} video mới vào hàng đợi đang tải...")
+                print(f"[QUEUE UPDATE] Đã thêm {added} video mới vào hàng đợi đang tải...")
                 self.status_label.setText(f"Đã thêm {added} video vào hàng đợi")
                 self._pump_queue()
             return
@@ -1021,7 +1021,7 @@ class YoutubeDownloaderApp(QMainWindow):
         item = self.model.get(uid)
         if not item:
             return
-        print(f"[RETRY] 🔄 Bấm nút thử lại thủ công cho video {uid}...")
+        print(f"[RETRY] Bấm nút thử lại thủ công cho video {uid}...")
         self._retry_counts[uid] = 0
         self.model.set_status(uid, "queued", "TH:16|TIME:00:00:00|DL:Đang khởi động...|SPD:Thử lại...|ETA:Bắt đầu")
         self.model.set_progress(uid, 0)
@@ -1057,13 +1057,13 @@ class YoutubeDownloaderApp(QMainWindow):
         self._retry_counts[uid] = count
         max_retries = len(self.RETRY_DELAYS)
 
-        print(f"[ERROR] ❌ Lỗi tải video {uid}: {err}")
+        print(f"[ERROR] Lỗi tải video {uid}: {err}")
 
         if count <= max_retries:
             delay_sec = self.RETRY_DELAYS[count - 1]
             delay_text = f"{delay_sec}s" if delay_sec < 60 else "1p"
             msg = f"TH:16|TIME:00:00:00|DL:Tự thử lại {count}/{max_retries}|SPD:Đợi {delay_text}...|ETA:Tự động"
-            print(f"[AUTO-RETRY] 🔄 Video {uid} gặp lỗi [{err}]. Tự thử lại lần {count}/{max_retries} sau {delay_text}...")
+            print(f"[AUTO-RETRY] Video {uid} gặp lỗi [{err}]. Tự thử lại lần {count}/{max_retries} sau {delay_text}...")
             self.model.set_status(uid, "queued", msg)
             self.model.set_progress(uid, 0)
             self.view.viewport().update()
@@ -1072,7 +1072,7 @@ class YoutubeDownloaderApp(QMainWindow):
         else:
             item = self.model.get(uid)
             title = item.get("title", "Unknown") if item else "Unknown"
-            err_msg = f"TH:16|TIME:Thất bại|DL:Lỗi {count} lần|SPD:Đã dừng|ETA:Bấm 🔄 thử lại"
+            err_msg = f"TH:16|TIME:Thất bại|DL:Lỗi {count} lần|SPD:Đã dừng|ETA:Bấm thử lại"
             self.model.set_status(uid, "error", err_msg)
             self.view.viewport().update()
             app_logger().error("Download error (6 retries failed) uid=%s: %s", uid, err)
@@ -1082,10 +1082,10 @@ class YoutubeDownloaderApp(QMainWindow):
             QMessageBox.warning(
                 self,
                 "Tải Thất Bại Ngưỡng 6 Lần",
-                f"⚠️ Video đã tự động thử lại 6 lần (1s, 3s, 5s, 10s, 30s, 1p) nhưng vẫn không tải được:\n\n"
-                f"📌 Tiêu đề: {title}\n"
-                f"❌ Lỗi: {err}\n\n"
-                f"👉 Bạn có thể kiểm tra đường truyền mạng hoặc bấm nút '🔄' trên thẻ video để thử lại thủ công!"
+                f"Video đã tự động thử lại 6 lần (1s, 3s, 5s, 10s, 30s, 1p) nhưng vẫn không tải được:\n\n"
+                f"Tiêu đề: {title}\n"
+                f"Lỗi: {err}\n\n"
+                f"Bạn có thể kiểm tra đường truyền mạng hoặc bấm nút thử lại trên thẻ video để thử lại thủ công!"
             )
             self._pump_queue()
 
@@ -1098,7 +1098,7 @@ class YoutubeDownloaderApp(QMainWindow):
         if not self._is_downloading:
             return
         self._stop_requested = True
-        print("[STOP] ⏹ Đã bấm Dừng tải! Đang chấm dứt tất cả luồng tải ngay lập tức...")
+        print("[STOP] Đã bấm Dừng tải! Đang chấm dứt tất cả luồng tải ngay lập tức...")
         for uid in list(self._pending_uids):
             self.model.set_status(uid, "stopped")
         self._pending_uids.clear()
