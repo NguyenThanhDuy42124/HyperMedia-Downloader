@@ -183,3 +183,7 @@ ffmpeg.exe
 *.exe
 dist/
 env/
+scratch/
+session.json
+cookies/cookies.txt
+
