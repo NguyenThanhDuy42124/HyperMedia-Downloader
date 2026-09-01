@@ -17,7 +17,7 @@ def main():
     bilibili_patch.patch_bilibili_list_titles()
 
     app = QApplication(sys.argv)
-    app.setApplicationName("YouTube Downloader Pro")
+    app.setApplicationName("HyperMedia Downloader Pro")
     app.setStyleSheet(THEME_QSS)
     icon_path = get_icon_path()
     if icon_path:

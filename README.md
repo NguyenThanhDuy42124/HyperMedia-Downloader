@@ -1,4 +1,4 @@
-# 🚀 OmniDownloader Pro (Universal Media Downloader)
+# 🚀 HyperMedia-Downloader (HyperMedia Downloader Pro)
 
 <div align="center">
 
@@ -51,8 +51,8 @@
 
 1. **Clone repository về máy:**
    ```bash
-   git clone https://github.com/NguyenThanhDuy42124/AppDowloadYoutube.git
-   cd AppDowloadYoutube
+   git clone https://github.com/NguyenThanhDuy42124/HyperMedia-Downloader.git
+   cd HyperMedia-Downloader
    ```
 
 2. **Tạo môi trường ảo & cài đặt thư viện:**
@@ -75,10 +75,10 @@
 Để build ra 1 file `.exe` duy nhất hoàn chỉnh có sẵn Icon và FFmpeg:
 
 ```bash
-pyinstaller --noconfirm --onefile --windowed --icon=icon/icon.ico --add-data="icon/icon.ico;icon" --add-binary="ffmpeg.exe;." --name "OmniDownloader_Pro" Main.py
+pyinstaller --noconfirm --onefile --windowed --icon=icon/icon.ico --add-data="icon/icon.ico;icon" --add-binary="ffmpeg.exe;." --name "HyperMedia_Downloader_Pro" Main.py
 ```
 
-File sau khi build sẽ nằm gọn gàng tại thư mục: `dist/OmniDownloader_Pro.exe`.
+File sau khi build sẽ nằm gọn gàng tại thư mục: `dist/HyperMedia_Downloader_Pro.exe`.
 
 ---
 

@@ -15,7 +15,7 @@ RESOLUTION_MAP = {
     "720": 720, "480": 480, "360": 360,
 }
 
-APP_NAME = "YouTube Downloader Pro"
+APP_NAME = "HyperMedia Downloader Pro"
 DEFAULT_LIMIT = 10
 DEFAULT_PARALLEL = 3
 MAX_PARALLEL = 5
