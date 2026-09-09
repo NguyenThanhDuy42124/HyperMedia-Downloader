@@ -82,6 +82,44 @@ File sau khi build sẽ nằm gọn gàng tại thư mục: `dist/HyperMedia_Dow
 
 ---
 
+## 🔑 Hệ Thống Bản Quyền & Tạo Key (`generate_key.py`)
+
+Hệ thống hỗ trợ 2 cơ chế sinh Key linh hoạt & bảo mật cao dành cho Admin:
+
+### 1. Kiểu 1: Khóa Theo HWID Khách Gửi (HWID Key - Cố định trước)
+* **Cú pháp:**
+  ```bash
+  python generate_key.py <HWID_KHACH> [PERM / 30 / 365 / YYYYMMDD]
+  ```
+* **Ví dụ:**
+  ```bash
+  python generate_key.py 4A21-8F9E-3B12-90CD PERM
+  python generate_key.py 4A21-8F9E-3B12-90CD 30
+  ```
+* **Cơ chế:** Khách gửi mã HWID trên máy ➔ Admin nhập HWID để tạo Key. Key này chỉ có thể kích hoạt trên đúng máy có HWID đó.
+* **Định dạng:** `KEY-PERM-A1B2-C3D4-E5F6-7890`
+
+### 2. Kiểu 2: Key Đổi Tự Active / Không HWID (Redeem Key - No-HWID)
+* **Cú pháp:**
+  ```bash
+  python generate_key.py nohwid [PERM / 30 / 365 / YYYYMMDD]
+  ```
+* **Ví dụ:**
+  ```bash
+  python generate_key.py nohwid PERM
+  python generate_key.py nohwid 30
+  ```
+* **Cơ chế:** Admin sinh sẵn hàng loạt Key mà không cần hỏi HWID của khách trước. Mỗi Key chứa chuỗi ngẫu nhiên độc bản (Random Nonce).
+* **Tự động khóa máy:** Khi khách hàng nhập Key và bấm **Kích Hoạt** lần đầu tiên trên máy A, phần mềm sẽ tự động ký số mã phần cứng Windows (`MachineGuid`) của máy A và khóa chặt Key đó vĩnh viễn với máy A. Từ đó về sau, máy B nhập lại Key này sẽ bị báo lỗi không hợp lệ!
+* **Định dạng:** `KEY-REDEEM-PERM-A4B7C9-X1Y2-Z3W4-V5U6`
+
+### 3. Cơ Chế Chống Hack & Bảo Mật An Toàn
+* **Chống Hack Lùi Ngày Hệ Thống (Internet Time Check):** Tự động kiểm tra ngày giờ chuẩn từ Internet (Google / Cloudflare / WorldTimeAPI) để tính số ngày còn lại của Key. Người dùng lùi đồng hồ Windows cũng không hack được hạn dùng.
+* **Nhận Diện Phần Cứng Bất Biến (MachineGuid Binding):** HWID sử dụng mã `MachineGuid` duy nhất trong Registry Windows. Người dùng đổi Wi-Fi, cắm dây mạng, bật VPN hay đổi MAC card mạng thì phần mềm vẫn nhận diện đúng máy cũ và giữ nguyên bản quyền.
+* **Lưu Trữ Vĩnh Viễn Trong AppData:** File mã hóa `license.lic` và `activated.token` được lưu an toàn tại `%LOCALAPPDATA%\HyperMedia_Downloader_Pro`. Dù người dùng di chuyển file `.exe` sang bất kỳ ổ đĩa nào thì bản quyền vẫn tự động nhận diện.
+
+---
+
 ## ⌨️ Phím Tắt Tiện Lợi
 
 | Phím tắt | Tác vụ |

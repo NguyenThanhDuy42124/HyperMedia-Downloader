@@ -42,6 +42,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from activation_dialog import ActivationDialog
+from license_manager import check_current_machine_license, get_license_info
+
 class PrintInterceptor(QObject):
     log_signal = Signal(str)
 
@@ -164,9 +167,10 @@ class HelpDialog(QDialog):
 
 
 class YoutubeDownloaderApp(QMainWindow):
-    def __init__(self):
+    def __init__(self, license_info: dict | None = None):
         super().__init__()
         self.setWindowTitle(APP_NAME)
+        self.license_info = license_info or {}
         icon_path = get_icon_path()
         if icon_path and os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
@@ -584,12 +588,20 @@ class YoutubeDownloaderApp(QMainWindow):
         splitter.setSizes([1180, 275])
         vbox.addWidget(splitter, 1)
 
-        # ---------- Status bar: Đường dẫn thư mục + Live Log + Hướng dẫn ----------
+        # ---------- Status bar: Đường dẫn thư mục + Live Log + Bản quyền + Hướng dẫn ----------
         self.lbl_path = QLabel(f"  Thư mục lưu: {self.save_folder}")
         self.lbl_path.setStyleSheet("color:#00E5FF;font-weight:bold;font-size:11px;")
         self.lbl_path.setToolTip("Click đúp để mở thư mục lưu.")
         self.lbl_path.mouseDoubleClickEvent = lambda e: self.open_folder()
         self.statusBar().addWidget(self.lbl_path)
+
+        self.btn_license_bar = QPushButton(" Bản quyền")
+        self.btn_license_bar.setIcon(get_lucide_icon("shield-check", "#00E676", 14))
+        self.btn_license_bar.setStyleSheet("background:#1a1a24;color:#00E676;font-weight:bold;")
+        self.btn_license_bar.setToolTip("Xem thông tin bản quyền hoặc kích hoạt License Key mới.")
+        self.btn_license_bar.clicked.connect(self.show_license_dialog)
+        self.statusBar().addPermanentWidget(self.btn_license_bar)
+        self.update_license_display()
 
         self.btn_log_bar = QPushButton(" Live Logs")
         self.btn_log_bar.setIcon(get_lucide_icon("terminal", "#00E5FF", 14))
@@ -602,6 +614,29 @@ class YoutubeDownloaderApp(QMainWindow):
         self.btn_help.setFixedWidth(115)
         self.btn_help.clicked.connect(lambda: HelpDialog(self).exec())
         self.statusBar().addPermanentWidget(self.btn_help)
+
+    def update_license_display(self):
+        info = self.license_info or get_license_info()
+        if info.get("is_lifetime"):
+            self.btn_license_bar.setText(" Bản quyền: Vĩnh viễn")
+            self.btn_license_bar.setStyleSheet("background:#1a1a24;color:#00E676;font-weight:bold;")
+            self.btn_license_bar.setIcon(get_lucide_icon("shield-check", "#00E676", 14))
+        elif info.get("days_left") is not None and info.get("days_left") >= 0:
+            days = info["days_left"]
+            self.btn_license_bar.setText(f" Bản quyền: {days} ngày")
+            self.btn_license_bar.setStyleSheet("background:#1a1a24;color:#00E5FF;font-weight:bold;")
+            self.btn_license_bar.setIcon(get_lucide_icon("shield-check", "#00E5FF", 14))
+        else:
+            self.btn_license_bar.setText(" Bản quyền: Hết hạn")
+            self.btn_license_bar.setStyleSheet("background:#5c1010;color:#ff8080;font-weight:bold;")
+            self.btn_license_bar.setIcon(get_lucide_icon("shield-check", "#ff8080", 14))
+
+    def show_license_dialog(self):
+        dlg = ActivationDialog(self)
+        dlg.exec()
+        is_valid, msg, info = check_current_machine_license()
+        self.license_info = info
+        self.update_license_display()
 
     def append_log(self, text):
         if not hasattr(self, "log_edit") or not text:
