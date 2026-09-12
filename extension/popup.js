@@ -1,4 +1,4 @@
-// Popup Script for HyperMedia Helper Extension
+// Popup Script for HyperMedia Helper Extension Pro
 document.addEventListener('DOMContentLoaded', async () => {
   const siteBadge = document.getElementById('siteBadge');
   const btnCopySingle = document.getElementById('btnCopySingle');
@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnStopBatch = document.getElementById('btnStopBatch');
   const btnCopyAll = document.getElementById('btnCopyAll');
   const inpLimit = document.getElementById('inpLimit');
+  const chkHumanRandom = document.getElementById('chkHumanRandom');
   const statusMsg = document.getElementById('statusMsg');
   const txtResults = document.getElementById('txtResults');
   const chips = document.querySelectorAll('.chip');
@@ -54,16 +55,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 2. Bắt đầu quét hàng loạt với Auto-Scroll
+  // 2. Bắt đầu quét hàng loạt với Auto-Scroll & Randomization
   btnStartBatch.addEventListener('click', async () => {
     const limit = parseInt(inpLimit.value, 10) || 0;
-    statusMsg.innerText = `Đang tự động cuộn trang quét ${limit === 0 ? 'Tất cả' : limit} video...`;
+    const isRandom = chkHumanRandom.checked;
+    statusMsg.innerText = `Đang tự động cuộn trang quét ${limit === 0 ? 'Tất cả' : limit} video (Random: ${isRandom ? 'Bật' : 'Tắt'})...`;
     btnStartBatch.style.display = 'none';
     btnStopBatch.style.display = 'flex';
     txtResults.value = '';
 
     try {
-      const resp = await chrome.tabs.sendMessage(tab.id, { action: 'START_BATCH_SCAN', limit: limit });
+      const resp = await chrome.tabs.sendMessage(tab.id, {
+        action: 'START_BATCH_SCAN',
+        limit: limit,
+        randomize: isRandom
+      });
       if (resp && resp.links) {
         handleScanComplete(resp.links);
       }
@@ -109,7 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Lắng nghe cập nhật tiến trình từ content script
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'BATCH_PROGRESS') {
-      statusMsg.innerText = `Đang cuộn: ${msg.count} video...`;
+      statusMsg.innerText = `Đang cuộn Random: ${msg.count} video...`;
       if (msg.links) {
         txtResults.value = msg.links.join('\n');
       }

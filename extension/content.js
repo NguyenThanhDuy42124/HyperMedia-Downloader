@@ -1,9 +1,9 @@
-// Content Script - HyperMedia Helper Pro
+// Content Script - HyperMedia Helper Pro with Humanized Randomization Engine
 (function() {
   let isScanning = false;
   let stopRequested = false;
 
-  // 1. Tạo Thanh Điều Khiển Nổi Trực Tiếp Trên Trang Douyin/TikTok/Bilibili
+  // 1. Tạo Thanh Điều Khiển Nổi Trực Tiếp Trên Trang
   function createFloatingControls() {
     if (document.getElementById('hm-floating-container')) return;
 
@@ -15,13 +15,13 @@
           <span class="hm-icon">🎬</span>
           <span>Copy Video Này</span>
         </button>
-        <button id="hm-btn-20" class="hm-btn-pill hm-btn-cyan" title="Tự động cuộn & Lấy 20 video">
+        <button id="hm-btn-20" class="hm-btn-pill hm-btn-cyan" title="Tự động cuộn ngẫu nhiên & Lấy 20 video">
           <span class="hm-icon">⚡</span>
-          <span>Cuộn 20 Video</span>
+          <span>Cuộn Random 20</span>
         </button>
-        <button id="hm-btn-50" class="hm-btn-pill hm-btn-cyan" title="Tự động cuộn & Lấy 50 video">
+        <button id="hm-btn-50" class="hm-btn-pill hm-btn-cyan" title="Tự động cuộn ngẫu nhiên & Lấy 50 video">
           <span class="hm-icon">⚡</span>
-          <span>Cuộn 50 Video</span>
+          <span>Cuộn Random 50</span>
         </button>
         <button id="hm-btn-all" class="hm-btn-pill hm-btn-green" title="Tự động cuộn đến hết trang">
           <span class="hm-icon">🚀</span>
@@ -29,7 +29,7 @@
         </button>
       </div>
       <div id="hm-progress-banner" class="hm-banner" style="display:none;">
-        <span id="hm-progress-text">Đang tự động cuộn trang...</span>
+        <span id="hm-progress-text">Đang cuộn ngẫu nhiên như người thật...</span>
         <button id="hm-btn-stop" class="hm-btn-stop">Dừng</button>
       </div>
     `;
@@ -38,9 +38,9 @@
 
     // Gắn sự kiện
     document.getElementById('hm-btn-single').addEventListener('click', () => copyCurrentVideoLink());
-    document.getElementById('hm-btn-20').addEventListener('click', () => scanProfileVideos(20));
-    document.getElementById('hm-btn-50').addEventListener('click', () => scanProfileVideos(50));
-    document.getElementById('hm-btn-all').addEventListener('click', () => scanProfileVideos(0));
+    document.getElementById('hm-btn-20').addEventListener('click', () => scanProfileVideos(20, true));
+    document.getElementById('hm-btn-50').addEventListener('click', () => scanProfileVideos(50, true));
+    document.getElementById('hm-btn-all').addEventListener('click', () => scanProfileVideos(0, true));
     document.getElementById('hm-btn-stop').addEventListener('click', () => {
       stopRequested = true;
       isScanning = false;
@@ -51,7 +51,6 @@
   function getCurrentVideoUrl() {
     const url = window.location.href;
 
-    // Douyin: Tìm link /video/ID
     if (url.includes('douyin.com')) {
       if (url.includes('/video/')) {
         const match = url.match(/\/video\/(\d+)/);
@@ -69,7 +68,6 @@
       }
     }
 
-    // TikTok: Tìm video ID
     if (url.includes('tiktok.com')) {
       if (url.includes('/video/')) {
         const match = url.match(/\/video\/(\d+)/);
@@ -77,13 +75,11 @@
       }
     }
 
-    // Bilibili: Tìm /video/BV
     if (url.includes('bilibili.com')) {
       const match = url.match(/\/video\/(BV[a-zA-Z0-9]+)/);
       if (match) return `https://www.bilibili.com/video/${match[1]}`;
     }
 
-    // YouTube: Tìm watch?v= hoặc shorts/
     if (url.includes('youtube.com')) {
       if (url.includes('watch?v=')) return url.split('&')[0];
       if (url.includes('/shorts/')) return url;
@@ -124,7 +120,7 @@
     }, 2800);
   }
 
-  // 5. Thu thập link hiện tại trên DOM (Khối code chuẩn xác của Douyin)
+  // 5. Thu thập link hiện tại trên DOM
   function collectCurrentLinks(collected) {
     const elements = document.querySelectorAll('a[href*="/video/"], a[href*="/watch?v="], a[href*="/shorts/"]');
     elements.forEach(el => {
@@ -148,8 +144,8 @@
     });
   }
 
-  // 6. Động cơ Auto-Scroll thông minh cuộn trang cho tới khi đủ số lượng
-  async function scanProfileVideos(limit) {
+  // 6. Động cơ Auto-Scroll với cơ chế Randomize như Người Thật (Chống Bot 100%)
+  async function scanProfileVideos(limit, randomize = true) {
     if (isScanning) return;
     isScanning = true;
     stopRequested = false;
@@ -162,16 +158,18 @@
     collectCurrentLinks(collected);
 
     let noNewCount = 0;
-    let maxRetries = 20;
+    let maxRetries = 25;
+    let scrollCount = 0;
 
-    showToast(`Bắt đầu tự động cuộn trang quét ${limit === 0 ? 'toàn bộ' : limit} video...`);
+    showToast(`Bắt đầu cuộn ${randomize ? 'Random Người Thật' : 'Tự Động'} quét ${limit === 0 ? 'toàn bộ' : limit} video...`);
 
     while (!stopRequested) {
       collectCurrentLinks(collected);
       const count = collected.size;
+      scrollCount++;
 
       if (progressText) {
-        progressText.innerText = `Đang cuộn: Đã lấy ${count} ${limit > 0 ? '/ ' + limit : ''} video...`;
+        progressText.innerText = `Đang cuộn (${randomize ? 'Random' : 'Chuẩn'}): Đã lấy ${count} ${limit > 0 ? '/ ' + limit : ''} video...`;
       }
 
       chrome.runtime.sendMessage({
@@ -184,12 +182,36 @@
         break;
       }
 
-      // Cuộn xuống từ từ để kích hoạt lazy loading của Douyin
-      const scrollStep = 900 + Math.floor(Math.random() * 300);
-      window.scrollBy({ top: scrollStep, behavior: 'smooth' });
+      // THUẬT TOÁN RANDOMIZE BIÊN ĐỘ CUỘN & ĐỘ TRỄ:
+      let scrollStep;
+      let delayMs;
 
-      // Đợi DOM render
-      await new Promise(r => setTimeout(r, 650));
+      if (randomize) {
+        // 1. Biên độ cuộn ngẫu nhiên từ 550px đến 1150px
+        scrollStep = 550 + Math.floor(Math.random() * 600);
+
+        // 2. Thỉnh thoảng (khoảng 15% xác suất) cuộn ngược nhẹ lên 60-120px như mắt người đọc lướt
+        if (Math.random() < 0.15 && scrollCount > 2) {
+          const backStep = 60 + Math.floor(Math.random() * 60);
+          window.scrollBy({ top: -backStep, behavior: 'smooth' });
+          await new Promise(r => setTimeout(r, 200 + Math.floor(Math.random() * 200)));
+        }
+
+        // 3. Thời gian nghỉ ngẫu nhiên (550ms - 1100ms)
+        delayMs = 550 + Math.floor(Math.random() * 550);
+
+        // 4. Cứ mỗi 5-7 lần cuộn, nghỉ ngẫu nhiên 1.5s - 2.5s như người thật dừng xem video
+        if (scrollCount % 6 === 0) {
+          delayMs += 1000 + Math.floor(Math.random() * 1000);
+        }
+      } else {
+        scrollStep = 1000;
+        delayMs = 700;
+      }
+
+      // Cuộn xuống mượt mà
+      window.scrollBy({ top: scrollStep, behavior: 'smooth' });
+      await new Promise(r => setTimeout(r, delayMs));
 
       const afterCount = collected.size;
       collectCurrentLinks(collected);
@@ -197,7 +219,7 @@
       if (collected.size === afterCount) {
         noNewCount++;
         if (noNewCount >= maxRetries) {
-          // Đã tới đáy trang
+          // Đã tới tận đáy trang
           break;
         }
       } else {
@@ -239,7 +261,7 @@
     if (msg.action === 'GET_SINGLE_VIDEO') {
       sendResponse({ url: getCurrentVideoUrl() });
     } else if (msg.action === 'START_BATCH_SCAN') {
-      scanProfileVideos(msg.limit || 0).then(links => {
+      scanProfileVideos(msg.limit || 0, msg.randomize !== false).then(links => {
         sendResponse({ links: links });
       });
       return true;

@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HyperMedia Helper</title>
+  <title>HyperMedia Helper Pro</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
     body {
-      width: 370px;
+      width: 375px;
       background: #0c0c14;
       color: #E2E8F0;
       padding: 16px;
@@ -44,6 +44,9 @@
       margin-bottom: 8px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     .btn {
       width: 100%;
@@ -126,6 +129,25 @@
     }
     .limit-input:focus { outline: none; border-color: #00E5FF; }
     
+    .random-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #12121c;
+      border: 1px solid #252538;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .random-box label {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #a7ffeb;
+    }
+    
     .result-box {
       width: 100%;
       height: 90px;
@@ -161,7 +183,7 @@
 <body>
   <div class="header">
     <div class="title">
-      <span>⚡ HyperMedia Grabber</span>
+      <span>⚡ HyperMedia Grabber Pro</span>
     </div>
     <div id="siteBadge" class="badge-site">Đang nhận diện...</div>
   </div>
@@ -171,7 +193,11 @@
     <span>🎬 Copy Link Video Này (1080p)</span>
   </button>
 
-  <div class="section-title" style="margin-top: 12px;">2. Tải Hàng Loạt (Auto-Scroll Trang Tác Giả)</div>
+  <div class="section-title" style="margin-top: 12px;">
+    <span>2. Tải Hàng Loạt (Auto-Scroll)</span>
+    <span style="color:#00E676; font-size:10px;">Anti-Bot Random</span>
+  </div>
+  
   <div class="quick-chips">
     <div class="chip active" data-val="20">20 Video</div>
     <div class="chip" data-val="50">50 Video</div>
@@ -179,10 +205,18 @@
     <div class="chip" data-val="0">Tất Cả</div>
   </div>
 
+  <div class="random-box">
+    <label>
+      <input type="checkbox" id="chkHumanRandom" checked>
+      <span>Mô phỏng lướt ngẫu nhiên người thật</span>
+    </label>
+    <span style="color:#00E5FF; font-size:11px;">(Random Delay & Step)</span>
+  </div>
+
   <div class="batch-controls">
     <input type="number" id="inpLimit" class="limit-input" value="20" min="0" max="500" title="0 = Quét toàn bộ">
     <button id="btnStartBatch" class="btn btn-success" style="margin-bottom:0; flex:1;">
-      <span>⚡ Bắt Đầu Cuộn & Quét</span>
+      <span>⚡ Bắt Đầu Cuộn Random</span>
     </button>
   </div>
   <button id="btnStopBatch" class="btn btn-danger" style="display:none;">

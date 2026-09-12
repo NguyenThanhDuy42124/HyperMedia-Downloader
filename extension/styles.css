@@ -15,12 +15,12 @@
 .hm-floating-bar {
   display: flex;
   gap: 8px;
-  background: rgba(12, 12, 20, 0.92);
+  background: rgba(12, 12, 20, 0.94);
   padding: 6px 10px;
   border-radius: 30px;
-  border: 1px solid rgba(0, 229, 255, 0.4);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 229, 255, 0.2);
-  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 229, 255, 0.45);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), 0 0 18px rgba(0, 229, 255, 0.25);
+  backdrop-filter: blur(12px);
 }
 
 .hm-btn-pill {
@@ -40,7 +40,7 @@
 
 .hm-btn-pill:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 229, 255, 0.5);
+  box-shadow: 0 4px 14px rgba(0, 229, 255, 0.55);
   background: #00B0FF;
 }
 
