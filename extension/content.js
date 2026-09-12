@@ -125,11 +125,15 @@
       const prevSize = collected.size;
 
       elements.forEach(el => {
-        let href = el.href;
+        let href = el.getAttribute('href') || el.href;
         if (!href) return;
-        if (href.includes('douyin.com')) {
-          const m = href.match(/\/video\/(\d+)/);
-          if (m) collected.add(`https://www.douyin.com/video/${m[1]}`);
+        if (href.includes('/video/')) {
+          if (href.startsWith('/video/')) {
+            collected.add('https://www.douyin.com' + href.split('?')[0]);
+          } else if (href.includes('/video/')) {
+            let part = href.split('/video/')[1].split('?')[0].split('/')[0];
+            collected.add('https://www.douyin.com/video/' + part);
+          }
         } else if (href.includes('bilibili.com')) {
           const m = href.match(/\/video\/(BV[a-zA-Z0-9]+)/);
           if (m) collected.add(`https://www.bilibili.com/video/${m[1]}`);
