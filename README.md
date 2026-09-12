@@ -33,9 +33,10 @@
 * Bảng điều khiển giám sát thời gian thực: Tốc độ tải (MB/s), Dung lượng (Size), Thời gian còn lại (ETA), Số luồng hoạt động (Threads).
 * Hỗ trợ tự động thử lại thông minh **6 lần** khi mạng chập chờn với độ trễ lũy tiến.
 
-### 🎵 4. Quản Lý Định Dạng & Tách Âm Thanh Linh Hoạt
-* Xuất file **MP4** với codec tùy chọn (H.264, H.265/HEVC, AV1).
-* Tách nhạc chất lượng cao **MP3 320kbps / Lossless** chỉ với 1 click.
+### 🧩 5. Extension Trình Duyệt "HyperMedia Helper" (Chrome / Edge)
+* Nằm sẵn tại thư mục: `dist/HyperMedia_Extension`.
+* **Tải lẻ 1-Click:** Khi đang xem video trên Douyin/TikTok/Bilibili/YouTube, bấm nút nổi `[⚡ Copy Link Video]` để copy link sạch 1080p ngay lập tức.
+* **Tải hàng loạt thông minh:** Tự động cuộn trang Profile/Kênh, trích xuất 20 - 100+ link video sạch chỉ với 1 click mà **không bao giờ lo bị Douyin chặn Captcha/WAF**.
 
 ---
 

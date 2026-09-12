@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "HyperMedia Helper - Video Link Grabber",
+  "version": "1.0.0",
+  "description": "Trợ lý trích xuất link video Douyin, TikTok, Bilibili, YouTube 1-Click cho HyperMedia Downloader Pro.",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    },
+    "default_title": "HyperMedia Video Grabber"
+  },
+  "permissions": [
+    "activeTab",
+    "clipboardWrite",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.douyin.com/*",
+    "*://*.tiktok.com/*",
+    "*://*.bilibili.com/*",
+    "*://*.youtube.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.douyin.com/*",
+        "*://*.tiktok.com/*",
+        "*://*.bilibili.com/*",
+        "*://*.youtube.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_end"
+    }
+  ]
+}
