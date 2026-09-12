@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "HyperMedia Helper - Video Link Grabber",
-  "version": "1.0.0",
-  "description": "Trợ lý trích xuất link video Douyin, TikTok, Bilibili, YouTube 1-Click cho HyperMedia Downloader Pro.",
+  "name": "HyperMedia Helper - Video Link Grabber Pro",
+  "version": "1.1.0",
+  "description": "Trợ lý trích xuất link video Douyin, TikTok, Bilibili, YouTube 1-Click kèm Auto-Scroll cho HyperMedia Downloader Pro.",
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",

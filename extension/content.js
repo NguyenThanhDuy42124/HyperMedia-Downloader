@@ -1,27 +1,50 @@
-// Content Script - HyperMedia Helper for Douyin, TikTok, Bilibili, YouTube
+// Content Script - HyperMedia Helper Pro
 (function() {
   let isScanning = false;
   let stopRequested = false;
 
-  // 1. Tạo Nút Nổi Nhanh trên giao diện (Floating Button)
-  function createFloatingButton() {
-    if (document.getElementById('hm-floating-btn')) return;
+  // 1. Tạo Thanh Điều Khiển Nổi Trực Tiếp Trên Trang Douyin/TikTok/Bilibili
+  function createFloatingControls() {
+    if (document.getElementById('hm-floating-container')) return;
 
-    const btn = document.createElement('div');
-    btn.id = 'hm-floating-btn';
-    btn.className = 'hm-floating-pill';
-    btn.innerHTML = `
-      <span class="hm-icon">⚡</span>
-      <span class="hm-text">Copy Link Video</span>
+    const container = document.createElement('div');
+    container.id = 'hm-floating-container';
+    container.innerHTML = `
+      <div class="hm-floating-bar">
+        <button id="hm-btn-single" class="hm-btn-pill" title="Copy link video 1080p đang xem">
+          <span class="hm-icon">🎬</span>
+          <span>Copy Video Này</span>
+        </button>
+        <button id="hm-btn-20" class="hm-btn-pill hm-btn-cyan" title="Tự động cuộn & Lấy 20 video">
+          <span class="hm-icon">⚡</span>
+          <span>Cuộn 20 Video</span>
+        </button>
+        <button id="hm-btn-50" class="hm-btn-pill hm-btn-cyan" title="Tự động cuộn & Lấy 50 video">
+          <span class="hm-icon">⚡</span>
+          <span>Cuộn 50 Video</span>
+        </button>
+        <button id="hm-btn-all" class="hm-btn-pill hm-btn-green" title="Tự động cuộn đến hết trang">
+          <span class="hm-icon">🚀</span>
+          <span>Quét Hết</span>
+        </button>
+      </div>
+      <div id="hm-progress-banner" class="hm-banner" style="display:none;">
+        <span id="hm-progress-text">Đang tự động cuộn trang...</span>
+        <button id="hm-btn-stop" class="hm-btn-stop">Dừng</button>
+      </div>
     `;
-    btn.title = 'Bấm để copy link video 1080p vào Clipboard (Dùng cho HyperMedia Downloader)';
 
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      copyCurrentVideoLink();
+    document.body.appendChild(container);
+
+    // Gắn sự kiện
+    document.getElementById('hm-btn-single').addEventListener('click', () => copyCurrentVideoLink());
+    document.getElementById('hm-btn-20').addEventListener('click', () => scanProfileVideos(20));
+    document.getElementById('hm-btn-50').addEventListener('click', () => scanProfileVideos(50));
+    document.getElementById('hm-btn-all').addEventListener('click', () => scanProfileVideos(0));
+    document.getElementById('hm-btn-stop').addEventListener('click', () => {
+      stopRequested = true;
+      isScanning = false;
     });
-
-    document.body.appendChild(btn);
   }
 
   // 2. Trích xuất link video đơn hiện tại
@@ -34,13 +57,15 @@
         const match = url.match(/\/video\/(\d+)/);
         if (match) return `https://www.douyin.com/video/${match[1]}`;
       }
-      // Đang lướt feed Douyin: Tìm video active
       const activeSlide = document.querySelector('.swiper-slide-active a[href*="/video/"]') ||
                           document.querySelector('[data-e2e="feed-active-video"] a[href*="/video/"]') ||
                           document.querySelector('a[href*="/video/"]');
-      if (activeSlide && activeSlide.href) {
-        const m = activeSlide.href.match(/\/video\/(\d+)/);
-        if (m) return `https://www.douyin.com/video/${m[1]}`;
+      if (activeSlide) {
+        let h = activeSlide.getAttribute('href') || activeSlide.href;
+        if (h) {
+          const m = h.match(/\/video\/(\d+)/);
+          if (m) return `https://www.douyin.com/video/${m[1]}`;
+        }
       }
     }
 
@@ -67,21 +92,20 @@
     return url;
   }
 
-  // 3. Sao chép link và hiện Toast thông báo mượt mà
+  // 3. Sao chép link và hiện Toast thông báo
   async function copyCurrentVideoLink() {
     const videoUrl = getCurrentVideoUrl();
     try {
       await navigator.clipboard.writeText(videoUrl);
-      showToast(`Đã copy link video: ${videoUrl.substring(0, 45)}...`);
+      showToast(`✅ Đã copy link: ${videoUrl.substring(0, 48)}...`);
     } catch (err) {
-      // Fallback
       const inp = document.createElement('textarea');
       inp.value = videoUrl;
       document.body.appendChild(inp);
       inp.select();
       document.execCommand('copy');
       document.body.removeChild(inp);
-      showToast(`Đã copy link video!`);
+      showToast(`✅ Đã copy link video!`);
     }
   }
 
@@ -100,81 +124,105 @@
     }, 2800);
   }
 
-  // 5. Quét toàn bộ video trên Profile / Kênh với tự động cuộn
+  // 5. Thu thập link hiện tại trên DOM (Khối code chuẩn xác của Douyin)
+  function collectCurrentLinks(collected) {
+    const elements = document.querySelectorAll('a[href*="/video/"], a[href*="/watch?v="], a[href*="/shorts/"]');
+    elements.forEach(el => {
+      let href = el.getAttribute('href') || el.href;
+      if (!href) return;
+
+      if (href.includes('/video/')) {
+        if (href.startsWith('/video/')) {
+          collected.add('https://www.douyin.com' + href.split('?')[0]);
+        } else if (href.includes('/video/')) {
+          let part = href.split('/video/')[1].split('?')[0].split('/')[0];
+          collected.add('https://www.douyin.com/video/' + part);
+        }
+      } else if (href.includes('bilibili.com')) {
+        const m = href.match(/\/video\/(BV[a-zA-Z0-9]+)/);
+        if (m) collected.add(`https://www.bilibili.com/video/${m[1]}`);
+      } else if (href.includes('youtube.com')) {
+        if (href.includes('watch?v=')) collected.add(href.split('&')[0]);
+        else if (href.includes('/shorts/')) collected.add(href);
+      }
+    });
+  }
+
+  // 6. Động cơ Auto-Scroll thông minh cuộn trang cho tới khi đủ số lượng
   async function scanProfileVideos(limit) {
     if (isScanning) return;
     isScanning = true;
     stopRequested = false;
 
-    let collected = new Set();
-    let noNewCount = 0;
-    let maxRetries = 25;
+    const banner = document.getElementById('hm-progress-banner');
+    const progressText = document.getElementById('hm-progress-text');
+    if (banner) banner.style.display = 'flex';
 
-    showToast('Bắt đầu cuộn trang quét danh sách video...');
+    let collected = new Set();
+    collectCurrentLinks(collected);
+
+    let noNewCount = 0;
+    let maxRetries = 20;
+
+    showToast(`Bắt đầu tự động cuộn trang quét ${limit === 0 ? 'toàn bộ' : limit} video...`);
 
     while (!stopRequested) {
-      // Thu thập tất cả thẻ link video
-      let selector = 'a[href*="/video/"]';
-      if (window.location.href.includes('bilibili.com')) {
-        selector = 'a[href*="/video/BV"]';
-      } else if (window.location.href.includes('youtube.com')) {
-        selector = 'a[href*="/watch?v="], a[href*="/shorts/"]';
+      collectCurrentLinks(collected);
+      const count = collected.size;
+
+      if (progressText) {
+        progressText.innerText = `Đang cuộn: Đã lấy ${count} ${limit > 0 ? '/ ' + limit : ''} video...`;
       }
 
-      const elements = document.querySelectorAll(selector);
-      const prevSize = collected.size;
-
-      elements.forEach(el => {
-        let href = el.getAttribute('href') || el.href;
-        if (!href) return;
-        if (href.includes('/video/')) {
-          if (href.startsWith('/video/')) {
-            collected.add('https://www.douyin.com' + href.split('?')[0]);
-          } else if (href.includes('/video/')) {
-            let part = href.split('/video/')[1].split('?')[0].split('/')[0];
-            collected.add('https://www.douyin.com/video/' + part);
-          }
-        } else if (href.includes('bilibili.com')) {
-          const m = href.match(/\/video\/(BV[a-zA-Z0-9]+)/);
-          if (m) collected.add(`https://www.bilibili.com/video/${m[1]}`);
-        } else if (href.includes('youtube.com')) {
-          if (href.includes('watch?v=')) collected.add(href.split('&')[0]);
-          else if (href.includes('/shorts/')) collected.add(href);
-        } else {
-          collected.add(href);
-        }
-      });
-
-      // Báo tiến trình cho Popup
       chrome.runtime.sendMessage({
         action: 'BATCH_PROGRESS',
-        count: collected.size,
+        count: count,
         links: Array.from(collected)
       }).catch(() => {});
 
-      if (limit > 0 && collected.size >= limit) {
+      if (limit > 0 && count >= limit) {
         break;
       }
 
-      if (collected.size === prevSize) {
+      // Cuộn xuống từ từ để kích hoạt lazy loading của Douyin
+      const scrollStep = 900 + Math.floor(Math.random() * 300);
+      window.scrollBy({ top: scrollStep, behavior: 'smooth' });
+
+      // Đợi DOM render
+      await new Promise(r => setTimeout(r, 650));
+
+      const afterCount = collected.size;
+      collectCurrentLinks(collected);
+
+      if (collected.size === afterCount) {
         noNewCount++;
         if (noNewCount >= maxRetries) {
-          // Đã cuộn đến đáy trang
+          // Đã tới đáy trang
           break;
         }
       } else {
         noNewCount = 0;
       }
-
-      // Cuộn trang xuống
-      window.scrollBy({ top: 1200, behavior: 'smooth' });
-      await new Promise(r => setTimeout(r, 600));
     }
 
     isScanning = false;
+    if (banner) banner.style.display = 'none';
+
     let finalLinks = Array.from(collected);
     if (limit > 0 && finalLinks.length > limit) {
       finalLinks = finalLinks.slice(0, limit);
+    }
+
+    const text = finalLinks.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const inp = document.createElement('textarea');
+      inp.value = text;
+      document.body.appendChild(inp);
+      inp.select();
+      document.execCommand('copy');
+      document.body.removeChild(inp);
     }
 
     chrome.runtime.sendMessage({
@@ -182,7 +230,7 @@
       links: finalLinks
     }).catch(() => {});
 
-    showToast(`Đã quét xong: ${finalLinks.length} video!`);
+    showToast(`🎉 Đã cuộn xong & Copy ${finalLinks.length} video vào Clipboard!`);
     return finalLinks;
   }
 
@@ -194,7 +242,7 @@
       scanProfileVideos(msg.limit || 0).then(links => {
         sendResponse({ links: links });
       });
-      return true; // async
+      return true;
     } else if (msg.action === 'STOP_BATCH_SCAN') {
       stopRequested = true;
       isScanning = false;
@@ -202,10 +250,9 @@
     }
   });
 
-  // Tự động gắn Nút Nổi khi tải trang
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', createFloatingButton);
+    document.addEventListener('DOMContentLoaded', createFloatingControls);
   } else {
-    createFloatingButton();
+    createFloatingControls();
   }
 })();

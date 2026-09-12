@@ -1,55 +1,111 @@
-/* HyperMedia Helper Floating Button & Toast Styles */
-.hm-floating-pill {
+/* HyperMedia Helper Pro Floating UI & Toast Styles */
+#hm-floating-container {
   position: fixed;
-  bottom: 30px;
-  right: 30px;
-  z-index: 9999999;
-  background: linear-gradient(135deg, #0284c7 0%, #00e5ff 100%);
-  color: #0c0c14;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  font-size: 13px;
-  font-weight: 800;
-  padding: 10px 18px;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483647;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.hm-floating-bar {
+  display: flex;
+  gap: 8px;
+  background: rgba(12, 12, 20, 0.92);
+  padding: 6px 10px;
   border-radius: 30px;
-  box-shadow: 0 4px 20px rgba(0, 229, 255, 0.4), 0 0 0 2px rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 229, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.hm-btn-pill {
+  border: none;
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  user-select: none;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 6px;
+  background: #0284c7;
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.hm-floating-pill:hover {
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 8px 30px rgba(0, 229, 255, 0.6);
-  background: linear-gradient(135deg, #00B0FF 0%, #00E676 100%);
+.hm-btn-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 229, 255, 0.5);
+  background: #00B0FF;
 }
 
-.hm-floating-pill:active {
-  transform: translateY(1px) scale(0.98);
+.hm-btn-cyan {
+  background: #0f172a;
+  color: #00E5FF;
+  border: 1px solid rgba(0, 229, 255, 0.4);
+}
+.hm-btn-cyan:hover {
+  background: #0284c7;
+  color: #ffffff;
 }
 
-.hm-floating-pill .hm-icon {
-  font-size: 16px;
+.hm-btn-green {
+  background: #004d40;
+  color: #00E676;
+  border: 1px solid rgba(0, 230, 118, 0.4);
 }
+.hm-btn-green:hover {
+  background: #00796b;
+  color: #ffffff;
+}
+
+.hm-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #0c0c14;
+  color: #00E5FF;
+  border: 1px solid #00E5FF;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+  animation: hmPulse 1.5s infinite;
+}
+
+.hm-btn-stop {
+  background: #7f1d1d;
+  color: #ff8080;
+  border: 1px solid #991b1b;
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.hm-btn-stop:hover { background: #991b1b; color: #fff; }
 
 #hm-toast {
   visibility: hidden;
-  min-width: 260px;
+  min-width: 280px;
   background-color: #0c0c14;
   color: #00E5FF;
   text-align: center;
   border-radius: 8px;
   padding: 12px 20px;
   position: fixed;
-  z-index: 10000000;
+  z-index: 2147483647;
   left: 50%;
   bottom: 40px;
   transform: translateX(-50%);
   border: 1px solid #00E5FF;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 229, 255, 0.3);
-  font-family: 'Segoe UI', sans-serif;
   font-size: 13px;
   font-weight: bold;
 }
@@ -67,4 +123,10 @@
 @keyframes hmFadeOut {
   from { bottom: 40px; opacity: 1; }
   to { bottom: 20px; opacity: 0; }
+}
+
+@keyframes hmPulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(0, 229, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0); }
 }

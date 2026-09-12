@@ -8,8 +8,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const inpLimit = document.getElementById('inpLimit');
   const statusMsg = document.getElementById('statusMsg');
   const txtResults = document.getElementById('txtResults');
+  const chips = document.querySelectorAll('.chip');
 
-  // Lấy tab hiện tại
+  chips.forEach(c => {
+    c.addEventListener('click', () => {
+      chips.forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      inpLimit.value = c.getAttribute('data-val');
+    });
+  });
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.url) {
     statusMsg.innerText = 'Không tìm thấy tab hợp lệ!';
@@ -35,7 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusMsg.innerText = '✅ Đã copy link video vào Clipboard!';
         txtResults.value = resp.url;
       } else {
-        // Fallback lấy url tab
         await navigator.clipboard.writeText(url);
         statusMsg.innerText = '✅ Đã copy link tab hiện tại!';
         txtResults.value = url;
@@ -47,10 +54,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 2. Bắt đầu quét hàng loạt
+  // 2. Bắt đầu quét hàng loạt với Auto-Scroll
   btnStartBatch.addEventListener('click', async () => {
     const limit = parseInt(inpLimit.value, 10) || 0;
-    statusMsg.innerText = `Đang tự động cuộn trang quét tối đa ${limit === 0 ? 'Tất cả' : limit} video...`;
+    statusMsg.innerText = `Đang tự động cuộn trang quét ${limit === 0 ? 'Tất cả' : limit} video...`;
     btnStartBatch.style.display = 'none';
     btnStopBatch.style.display = 'flex';
     txtResults.value = '';
@@ -102,7 +109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Lắng nghe cập nhật tiến trình từ content script
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'BATCH_PROGRESS') {
-      statusMsg.innerText = `Đang quét: ${msg.count} video...`;
+      statusMsg.innerText = `Đang cuộn: ${msg.count} video...`;
       if (msg.links) {
         txtResults.value = msg.links.join('\n');
       }
