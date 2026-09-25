@@ -185,5 +185,12 @@ dist/
 env/
 scratch/
 session.json
-cookies/cookies.txt
+cookies/
+cookies.txt
+*_cookies*.txt
+*cookie*.txt
+*.part
+downloads/
+dist/HyperMedia_Extension/
+
 

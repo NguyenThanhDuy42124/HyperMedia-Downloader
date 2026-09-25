@@ -14,9 +14,9 @@ from models import VideoRoles
 from lucide_icons import draw_lucide_icon
 
 CARD_W = 320
-CARD_H = 300
+CARD_H = 316
 GRID_W = 328
-GRID_H = 308
+GRID_H = 324
 
 # Palette
 CARD_BG = QColor("#1f1f24")
@@ -75,7 +75,7 @@ class VideoItemDelegate(QStyledItemDelegate):
         check = QRect(thumb.right() - 26, thumb.y() + 6, 20, 20)
         title = QRect(x + 8, thumb.bottom() + 6, w - 16, 36)
         status = QRect(x + 8, title.bottom() + 4, w - 16, 42)
-        progress = QRect(x + 8, status.bottom() + 5, w - 16, 6)
+        progress = QRect(x + 8, status.bottom() + 6, w - 16, 14)
         row_y = card.bottom() - 26
         type_ = QRect(x + 8, row_y, 52, 22)
         res = QRect(type_.right() + 4, row_y, 66, 22)
@@ -370,17 +370,29 @@ class VideoItemDelegate(QStyledItemDelegate):
 
     def _draw_progress(self, painter, rect, progress, done):
         painter.save()
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#1a1a1a"))
-        painter.drawRoundedRect(QRectF(rect), 3, 3)
-        if progress > 0 or done:
-            fill = QColor("#00E676") if done else QColor("#00B0FF")
-            painter.setBrush(fill)
-            w = int(rect.width() * min(progress, 100) / 100.0)
+        # Nền thanh tiến độ (Track) với viền rõ ràng
+        painter.setPen(QPen(QColor("#2d3748"), 1))
+        painter.setBrush(QColor("#111827"))
+        painter.drawRoundedRect(QRectF(rect), 4, 4)
+
+        pct = 100 if done else max(0, min(int(progress), 100))
+        if pct > 0:
+            fill_color = QColor("#00E676") if done else QColor("#00E5FF")
+            w = int(rect.width() * pct / 100.0)
             if w > 0:
-                painter.drawRoundedRect(
-                    QRectF(rect.x(), rect.y(), w, rect.height()), 3, 3
-                )
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(fill_color)
+                painter.drawRoundedRect(QRectF(rect.x(), rect.y(), w, rect.height()), 4, 4)
+
+        # Chữ số phần trăm ở giữa thanh tiến độ rõ nét
+        p_font = QFont(painter.font())
+        p_font.setPointSize(8)
+        p_font.setBold(True)
+        painter.setFont(p_font)
+        painter.setPen(QColor("#ffffff") if pct >= 50 else QColor("#A0AEC0"))
+        pct_text = "100%" if done else f"{pct}%"
+        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, pct_text)
+
         painter.restore()
 
     def _draw_field(self, painter, rect, field, value):

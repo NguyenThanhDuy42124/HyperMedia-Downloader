@@ -71,7 +71,20 @@ class ThumbnailPool(QObject):
     @staticmethod
     def _fetch(url):
         try:
-            resp = requests.get(url, timeout=10)
+            if url.startswith("data:image/"):
+                import base64
+                header, base64_data = url.split(",", 1)
+                img_data = base64.b64decode(base64_data)
+                pm = QPixmap()
+                if pm.loadFromData(img_data):
+                    return pm
+                return None
+
+            from site_utils import detect_site
+            from app_constants import get_random_user_agent
+            headers = detect_site(url)
+            headers["User-Agent"] = get_random_user_agent()
+            resp = requests.get(url, headers=headers, timeout=10)
             if resp.status_code == 200:
                 pm = QPixmap()
                 if pm.loadFromData(resp.content):

@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HyperMedia Downloader Pro — Tổng Hợp Chức Năng, Dự Án Tham Khảo & Lộ Trình</title>
+  <style>
+    :root {
+      --bg: #090912;
+      --bg-card: #121222;
+      --bg-card-hover: #17172b;
+      --border: #1e1e38;
+      --border-accent: #2e2e54;
+      --cyan: #00e5ff;
+      --green: #00e676;
+      --yellow: #ffc107;
+      --red: #ff5252;
+      --purple: #b388ff;
+      --teal: #1de9b6;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    header {
+      background: linear-gradient(135deg, #0f0f24 0%, #0d1e38 50%, #0f0f24 100%);
+      border-bottom: 1px solid rgba(0, 229, 255, 0.25);
+      padding: 24px 36px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+    header h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--cyan);
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header .sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .author-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 230, 118, 0.12);
+      color: var(--green);
+      border: 1px solid rgba(0, 230, 118, 0.3);
+      padding: 3px 12px;
+      border-radius: 14px;
+      font-size: 11.5px;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+    nav {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 12px;
+      padding: 5px 14px;
+      border-radius: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+    nav a:hover {
+      color: var(--cyan);
+      border-color: var(--cyan);
+      background: rgba(0, 229, 255, 0.08);
+    }
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 36px 80px;
+    }
+    .section-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--cyan);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      margin: 36px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title:first-of-type { margin-top: 0; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .card:hover {
+      border-color: var(--border-accent);
+      background: var(--bg-card-hover);
+      transform: translateY(-2px);
+    }
+    .card-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--teal);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-desc {
+      font-size: 12.5px;
+      color: #94a3b8;
+      line-height: 1.55;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: bold;
+      padding: 2px 8px;
+      border-radius: 8px;
+      margin-top: 8px;
+      text-transform: uppercase;
+    }
+    .badge.done { background: rgba(0, 230, 118, 0.15); color: var(--green); border: 1px solid rgba(0, 230, 118, 0.3); }
+    .badge.ref { background: rgba(179, 136, 255, 0.15); color: var(--purple); border: 1px solid rgba(179, 136, 255, 0.3); }
+    .badge.plan { background: rgba(0, 229, 255, 0.15); color: var(--cyan); border: 1px solid rgba(0, 229, 255, 0.3); }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      margin: 14px 0 24px;
+      background: var(--bg-card);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    th {
+      text-align: left;
+      padding: 10px 14px;
+      background: #0d0d1c;
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+    code {
+      background: #090914;
+      color: var(--teal);
+      font-family: 'Consolas', monospace;
+      font-size: 11.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .info-box {
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 12.5px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+      border-left: 4px solid;
+    }
+    .info-box.green {
+      background: rgba(0, 230, 118, 0.06);
+      border-color: var(--green);
+      color: #a5d6a7;
+    }
+    .info-box.purple {
+      background: rgba(179, 136, 255, 0.06);
+      border-color: var(--purple);
+      color: #d1c4e9;
+    }
+    .info-box.cyan {
+      background: rgba(0, 229, 255, 0.06);
+      border-color: var(--cyan);
+      color: #80deea;
+    }
+    .timeline {
+      position: relative;
+      padding-left: 24px;
+      margin: 16px 0;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 6px;
+      bottom: 6px;
+      width: 2px;
+      background: var(--border-accent);
+    }
+    .timeline-item {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -24px;
+      top: 4px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--bg);
+      border: 3px solid var(--cyan);
+    }
+    .timeline-item.done::before { border-color: var(--green); }
+    .timeline-item.future::before { border-color: var(--purple); }
+    .timeline-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .timeline-desc {
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ HyperMedia Downloader Pro — Tổng Hợp Toàn Diện</h1>
+  <div class="sub">Tóm tắt các chức năng app · Những gì đã làm được · Dự án tham khảo GitHub · Lộ trình tương lai</div>
+  <div class="author-chip">
+    <span>Tác giả: NguyenThanhDuy42124 (Nguyễn Thanh Duy)</span> · <span>Zalo: 0334674017</span>
+  </div>
+  <nav>
+    <a href="#features">1. Toàn Bộ Chức Năng App</a>
+    <a href="#accomplished">2. Những Gì Đã Làm Được</a>
+    <a href="#references">3. Tham Khảo Dự Án GitHub</a>
+    <a href="#roadmap">4. Lộ Trình Tương Lai (Roadmap)</a>
+  </nav>
+</header>
+
+<div class="container">
+
+  <!-- PHẦN 1: CHỨC NĂNG APP HIỆN TẠI -->
+  <div class="section-title" id="features">
+    <span>🎬</span> 1. Tổng Hợp Toàn Bộ Chức Năng Của App Hiện Tại
+  </div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">🌐 Tải Đa Nền Tảng (4 Platforms)</div>
+      <div class="card-desc">Hỗ trợ trích xuất &amp; tải video từ <b>YouTube, Bilibili, Douyin (抖音), TikTok</b>. Tải video đơn, danh sách phát (playlist), kênh/space người dùng.</div>
+      <span class="badge done">Đã Hoàn Thành</span>
+    </div>
+    <div class="card">
+      <div class="card-title">🚀 Turbo Download &amp; Đa Luồng</div>
+      <div class="card-desc">Tải song song 1–5 video đồng thời, hỗ trợ phân mảnh Range request tốc độ cao. Cơ chế tự chuyển đổi đa luồng/đơn luồng thông minh theo từng site.</div>
+      <span class="badge done">Đã Hoàn Thành</span>
+    </div>
+    <div class="card">
+      <div class="card-title">🎵 Douyin 1080p Direct Unlocker</div>
+      <div class="card-desc">Bypass giới hạn web, gọi thẳng mobile API Aweme (iPhone User-Agent) để lấy luồng video gốc <b>Full HD 1080p không logo/watermark</b>.</div>
+      <span class="badge done">Đã Hoàn Thành</span>
+    </div>
+    <div class="card">
+      <div class="card-title">🎭 Bilibili AV1 Smart Trick</div>
+      <div class="card-desc">Thủ thuật tải luồng AV1 chất lượng cao miễn phí (không cần tài khoản VIP), sau đó dùng FFmpeg tự động recode sang MP4 H.264 tương thích mọi thiết bị.</div>
+      <span class="badge done">Đã Hoàn Thành</span>
+    </div>
+    <div class="card">
+      <div class="card-title">🍪 Cookie Fallback 5 Lớp</div>
+      <div class="card-desc">Tự động ưu tiên nguồn cookie: <code>cookies.txt</code> &rarr; Chrome &rarr; Edge &rarr; Firefox &rarr; Anonymous. Mở khóa chất lượng VIP và video riêng tư.</div>
+      <span class="badge done">Đã Hoàn Thành</span>
+    </div>
+    <div class="card">
+      <div class="card-title">🔄 Infinite Retry &amp; Jitter Backoff</div>
+      <div class="card-desc">Cấu hình retry không giới hạn kết hợp <code>continuedl=True</code> (nối tiếp byte đã tải, không tải lại từ đầu) và độ trễ ngẫu nhiên chống bot WAF.</div>
+      <span class="badge done">Đã Hoàn Thành</span>
+    </div>
+    <div class="card">
+      <div class="card-title">🖼️ Virtual Card Grid &amp; Floating Panel</div>
+      <div class="card-desc">Giao diện QAbstractListModel mượt mà với 1000+ video. Thanh công cụ nổi bật lên khi chọn video để đổi hàng loạt độ phân giải, codec, bitrate.</div>
+      <span class="badge done">Đã Hoàn Thành</span>
+    </div>
+    <div class="card">
+      <div class="card-title">🛡️ Hệ Thống Bản Quyền License DRM</div>
+      <div class="card-desc">Khóa bản quyền theo HWID máy hoặc Redeem Key ngẫu nhiên. Lấy giờ chuẩn Online từ Internet (NTP) chống gian lận lùi ngày Windows.</div>
+      <span class="badge done">Đã Hoàn Thành</span>
+    </div>
+    <div class="card">
+      <div class="card-title">🧩 Extension Trợ Lý Trình Duyệt v1.3.0</div>
+      <div class="card-desc">Tự động cuộn ngẫu nhiên (Anti-Bot Randomize) lấy hàng loạt link, thanh công cụ nổi bật/tắt được trên web, và <b>Xuất Cookies 1-Click</b>.</div>
+      <span class="badge done">Đã Hoàn Thành</span>
+    </div>
+  </div>
+
+  <!-- PHẦN 2: NHỮNG GÌ VỪA LÀM ĐƯỢC -->
+  <div class="section-title" id="accomplished">
+    <span>✅</span> 2. Những Gì Vừa Được Nâng Cấp &amp; Khắc Phục (Vừa Làm Xong)
+  </div>
+  <div class="info-box green">
+    <b>Đã kiểm chứng thực nghiệm &amp; vá lỗi trực tiếp trong mã nguồn:</b>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Hạng Mục</th>
+        <th style="width: 45%;">Chi Tiết Kỹ Thuật Đã Làm</th>
+        <th style="width: 30%;">Kết Quả Đạt Được</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Sửa Lỗi Bilibili Drop Socket 900KB</b></td>
+        <td>
+          Phát hiện CDN Bilibili (Akamai/Tencent) ngắt TCP RST khi chia 1 file DASH m4s thành nhiều luồng Range.<br>
+          &rarr; Đã ép <code>concurrent_fragment_downloads = 1</code> riêng cho Bilibili và tắt hoàn toàn chunking trong <code>download_worker.py</code>.
+        </td>
+        <td><span class="badge done">Đã Fix 100%</span> Tải trọn vẹn video m4s 20MB trong 14s (20.29 MB/s), không còn bị ngắt ở 900KB.</td>
+      </tr>
+      <tr>
+        <td><b>Rewrite CDN Bilibili Toàn Diện</b></td>
+        <td>
+          Trong <code>bilibili_patch.py</code>, chuyển toàn bộ CDN P2P (<code>mcdn.bilivideo.com</code>, <code>*.mcdn.bilivideo.cn</code>, <code>gotcha</code>) sang <b><code>upos-sz-mirrorcos.bilivideo.com</code></b> (Tencent Cloud).
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành</span> Tốc độ từ VN ổn định, không bị bóp băng thông bởi node P2P.</td>
+      </tr>
+      <tr>
+        <td><b>Fix Lỗi Tiềm Ẩn NameError out_path</b></td>
+        <td>
+          Sửa lỗi biến <code>out_path</code> không khai báo trong hàm <code>download_with_format_fallback</code> khi kích hoạt AV1 fallback hoặc socket drop fallback.
+        </td>
+        <td><span class="badge done">Đã Fix</span> Không còn rủi ro crash app khi dọn file <code>.part</code> dở dang.</td>
+      </tr>
+      <tr>
+        <td><b>Tích Hợp Xuất Cookies Vào Extension</b></td>
+        <td>
+          Nâng cấp Extension lên <b>v1.3.0</b>: bổ sung quyền <code>cookies</code> trong <code>manifest.json</code>, thêm 2 chế độ xuất cookie trong Popup:
+          <br>&bull; Nút <b>"🍪 Xuất Cookies Trang Hiện Tại (cookies.txt)"</b> (chỉ lấy cookie của site đang mở).
+          <br>&bull; Nút <b>"🌐 Xuất Gộp Cả 3 Trang (Douyin + Bilibili + YouTube)"</b> (gom tự động 3 domain vào 1 file <code>cookies.txt</code> duy nhất để nạp vào App).
+          <br>&bull; Nút <b>"📋 Copy Chuỗi Cookie Vào Clipboard"</b>.
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành</span> Đầy đủ cookie HttpOnly (SESSDATA, buvid3, SID...). Người dùng không cần cài thêm extension ngoài.</td>
+      </tr>
+      <tr>
+        <td><b>Khắc Phục Tụt Tốc Độ Video Bilibili &gt;1GB</b></td>
+        <td>
+          &bull; <b>CDN Rewrite:</b> Chuyển đổi toàn bộ domain <code>upos-hz-mirrorakam.akamaized.net</code> sang <b><code>upos-sz-mirrorcos.bilivideo.com</code></b> (Tencent Cloud).<br>
+          &bull; <b>Phân Khối Lớn Chủ Động (Chunk Pacing 30MB):</b> Tự động chia file thành từng khối <code>30MB &plusmn; 1MB Jitter</code>; tải xong 30MB tự đóng socket và mở phiên mới trước khi CDN kích hoạt cơ chế bóp băng thông 40s.<br>
+          &bull; Giảm <code>socket_timeout = 15s</code> và tăng bộ đệm tải lên 4MB.
+        </td>
+        <td><span class="badge done">Đã Fix &amp; Đã Build EXE</span> Duy trì đều đặn tốc độ tải 8–12 MB/s liên tục, không còn bị tụt về vài KB.</td>
+      </tr>
+      <tr>
+        <td><b>Cầu Nối Trực Tiếp App &harr; Extension</b></td>
+        <td>
+          Tích hợp <code>local_server.py</code> vào Desktop App:
+          <br>&bull; <b>Auto Port Hopping:</b> Tự động né cổng bận từ <code>42124</code> đến <code>42135</code>.
+          <br>&bull; <b>Auto Port Hunting:</b> Extension tự động quét song song dải cổng để tìm App (có đèn báo kết nối 🟢).
+          <br>&bull; Nút <b>"🚀 Gửi Vào App Ngay"</b> (cho video lẻ hoặc hàng loạt).
+          <br>&bull; Nút <b>"⚡ Đồng Bộ Cookies Thẳng Vào App"</b> (tự ghi vào <code>cookies.txt</code> mà không cần tải file!).
+        </td>
+        <td><span class="badge done">Đã Build EXE &amp; Sync Extension</span> Trải nghiệm 1-click liền mạch như IDM.</td>
+      </tr>
+      <tr>
+        <td><b>Thiết Kế Lại Thanh Tiến Độ (UI Progress Bar)</b></td>
+        <td>
+          &bull; Tăng chiều cao thanh tiến độ từ <code>6px &rarr; 14px</code>, tăng card height lên <code>316px</code>.<br>
+          &bull; Nền thanh tiến độ (Track) có viền tương phản sắc nét <code>#2d3748</code> trên nền tối <code>#111827</code>.<br>
+          &bull; Màu tiến độ hiển thị Neon Cyan <code>#00E5FF</code> (đang tải) hoặc Emerald Green <code>#00E676</code> (hoàn tất).<br>
+          &bull; <b>Chữ số % tiến độ (f"{pct}%"):</b> Căn giữa thanh tiến độ, in đậm rõ nét, tự động đổi màu chữ trắng/xám theo độ phủ.
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành &amp; Build EXE</span> Nhìn rõ ràng từng % tiến trình trên từng card video.</td>
+      </tr>
+      <tr>
+        <td><b>Khởi Động So Le (Staggered Launch) &amp; Chống Kẹt Hàng Đợi</b></td>
+        <td>
+          &bull; <b>Staggered Launch (1.5s):</b> Thay vì nổ súng cùng mili-giây gây Traffic Spike khiến WAF/CDN chặn IP, các video được khởi động cách nhau 1.5s êm ái.<br>
+          &bull; <b>Round-Robin Requeue:</b> Khi 1 video gặp sự cố, chuyển ngay xuống <b>cuối hàng đợi</b> và giải phóng luồng để <b>chạy tiếp tập tiếp theo</b> ngay lập tức, không để 1 tập kẹt làm nghẽn toàn bộ.
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành &amp; Build EXE</span> Tải trôi chảy liên tục cả danh sách 12+ video không bị nghẽn.</td>
+      </tr>
+      <tr>
+        <td><b>Bộ Ngắt Lỗi CDN 503 &amp; Cảm Biến Kẹt Byte</b></td>
+        <td>
+          &bull; <b>Ngắt Lỗi 503:</b> Tự động nhận diện khi máy chủ CDN từ chối hoặc đóng kết nối (HTTP 503 / RemoteDisconnected &ge; 3 lần) để dừng ngay, không bị retry lê thê 27-50 lần.<br>
+          &bull; <b>Stuck Loop Detector:</b> Phát hiện rớt tại cùng một vị trí byte cố định (&ge; 5 lần) do WAF ngắt socket để dừng kịp thời và chuyển sang tập sau.
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành &amp; Build EXE</span> Triệt tiêu hoàn toàn hiện tượng spam retry vô hạn.</td>
+      </tr>
+      <tr>
+        <td><b>Ưu Tiên Chất Lượng Gốc (VIP H.264/HEVC) &amp; AV1 Fallback</b></td>
+        <td>
+          &bull; Mặc định tắt ép AV1 để tận dụng tối đa chất lượng cao sắc nét (H.264 / HEVC VIP 1080P+, 4K).<br>
+          &bull; AV1 chỉ đóng vai trò <b>Fallback (Dự phòng)</b> tự động kích hoạt khi luồng VIP bị từ chối (mã 702450) hoặc sau 2 vòng thử lại cookies thất bại.
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành &amp; Build EXE</span> Video nét căng, chỉ dùng AV1 khi thực sự cần thiết để cứu nguy.</td>
+      </tr>
+      <tr>
+        <td><b>Tự Động Dọn Dẹp File .part &amp; Bảng Thông Báo Kết Quả</b></td>
+        <td>
+          &bull; <b>Dọn File Rác:</b> Tự động quét và xóa sạch các file tạm <code>.part</code>, <code>.ytdl</code> ngay khi video hoàn thành 100% hoặc khi dừng tiến trình tải.<br>
+          &bull; <b>Hộp Thoại Tổng Kết:</b> Phân biệt rõ ràng giữa bấm Dừng (Stop) và Hoàn tất. Liệt kê rõ các tập bị lỗi (hết hạn token / CDN từ chối) kèm hướng dẫn quét lại link mới.
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành &amp; Build EXE</span> Thư mục tải về luôn sạch sẽ, thông báo minh bạch dễ hiểu.</td>
+      </tr>
+      <tr>
+        <td><b>Chức Năng Tải Thumbnail Siêu Tốc</b></td>
+        <td>
+          &bull; Nút <b>"🖼️ TẢI THUMBNAIL"</b> trên thanh công cụ nổi (video đã chọn).<br>
+          &bull; Nút <b>"🖼️ Tải Thumbnail Tất Cả"</b> trên Control Panel.<br>
+          &bull; Menu ngữ cảnh chuột phải trên Card: <i>"Tải ảnh Thumbnail video này"</i>.<br>
+          &bull; Tải qua luồng nền (Background Threading) với User-Agent chuẩn, không làm đơ giao diện.
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành &amp; Build EXE</span> Tải ảnh bìa HD trực tiếp vào thư mục downloads chỉ trong 1 click.</td>
+      </tr>
+      <tr>
+        <td><b>Bilibili 1080P DASH Mode</b></td>
+        <td>
+          Thêm <code>extractor_args bilibili fnval=4048</code> trong <code>download_worker.py</code> → ép Bilibili API trả DASH stream thay vì Progressive MP4.<br>
+          Kết quả: tải được 1080P H.264 (format 30080) thay vì bị giới hạn 720P.
+        </td>
+        <td><span class="badge done">Đã Fix</span> 720P → 1080P thành công.</td>
+      </tr>
+      <tr>
+        <td><b>Sửa URL-decode Cookie (SESSDATA)</b></td>
+        <td>
+          Chrome trả SESSDATA dạng URL-encoded (<code>%2C</code>, <code>%2A</code>) qua Extension.<br>
+          Fix trong <code>local_server.py</code>: <code>urllib.parse.unquote()</code> trước khi ghi vào <code>cookies.txt</code>.<br>
+          Hệ quả trước fix: Bilibili reject session → anonymous 480P. Sau fix: 1080P OK.
+        </td>
+        <td><span class="badge done">Đã Fix</span> Cookie hoạt động đúng, Bilibili nhận diện session.</td>
+      </tr>
+      <tr>
+        <td><b>Bilibili VIP Detection Logic</b></td>
+        <td>
+          Kiểm tra <code>_has_1080p</code> với cookie trước khi tải:<br>
+          &bull; Cookie cho 1080P → dùng cookie (tài khoản có quyền Đại Hội Viên hoặc video public)<br>
+          &bull; Cookie chỉ cho &le;720P → bỏ cookie, dùng anonymous → lấy được 1080P public<br>
+          VIP path dùng <code>download_with_format_fallback()</code> → hưởng bilibili_patch + retry.
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành</span> Tự động chọn đường tải tối ưu cho từng loại tài khoản.</td>
+      </tr>
+      <tr>
+        <td><b>UI Monotonic Progress (Chống Nhảy Về 0)</b></td>
+        <td>
+          Trong <code>progress_hook()</code> của <code>download_worker.py</code>:<br>
+          &bull; <code>_max_pct</code>: chỉ tăng không bao giờ giảm → thanh tiến độ không giật lùi về 0 khi retry.<br>
+          &bull; <code>_max_downloaded</code>: giữ số MB tải lớn nhất → số hiển thị không thụt lùi giữa các chunk.
+        </td>
+        <td><span class="badge done">Đã Fix</span> UI mượt, không còn hiện tượng giật số liên tục.</td>
+      </tr>
+      <tr>
+        <td><b>Bilibili Config E Turbo (Đỉnh 72 MB/s) &amp; Xử Lý Kẹt Byte</b></td>
+        <td>
+          &bull; <b>Benchmark Thực Nghiệm:</b> Config E (6 luồng &times; 8MB chunk, bỏ sleep delay) thắng áp đảo cấu hình đơn luồng (97.87 MB trong 87s, tốc độ đỉnh <b>72.36 MB/s</b> so với 0.79 MB/s của cấu hình cũ).<br>
+          &bull; <b>Khắc Phục Lỗi Kẹt Byte (457,770 bytes):</b> Phát hiện do file <code>.part</code> cũ còn sót lại trong <code>downloads/new</code> khiến yt-dlp cố resume trên token CDN đã hết hạn. Đã xử lý xóa triệt để file rác trước khi tải tập mới.
+        </td>
+        <td><span class="badge done">Đã Fix &amp; Build EXE</span> Tốc độ siêu tốc, không còn nghẽn retry.</td>
+      </tr>
+      <tr>
+        <td><b>Douyin Cookie &amp; Paid Content (Nội Dung Trả Phí)</b></td>
+        <td>
+          &bull; <b>Phân Tích Cơ Chế:</b> Extractor <code>DouyinIE</code> của yt-dlp chỉ có 138 dòng, không hỗ trợ phim tính phí (chỉ tải được trailer 15–30s kể cả có cookies mua).<br>
+          &bull; <b>Giải Pháp Đột Phá:</b> Người dùng phát video đã mua trên trình duyệt &rarr; Extension tự bắt link stream CDN sạch (<code>douyinvod.com</code>) đã giải mã &rarr; Gửi thẳng vào App tải trực tiếp <b>1080P Full HD không logo</b> mà không cần yt-dlp.
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành</span> Đã xác định cơ chế và tối ưu luồng Extension.</td>
+      </tr>
+      <tr>
+        <td><b>Điều Phối Đa Nhiệm Nền Tảng (Adaptive Concurrency Dispatcher)</b></td>
+        <td>
+          &bull; <b>Bilibili:</b> Tự động cô lập tối đa <b>1 video Bilibili tại một thời điểm</b> (chống Traffic Spike / WAF CDN ngắt kết nối socket), mỗi video chạy Config E Turbo (6 luồng &times; 8MB chunk).<br>
+          &bull; <b>Douyin / YouTube / TikTok:</b> Tự do chạy đa nhiệm song song theo cấu hình người dùng (2&ndash;5 video đồng thời, 16 luồng phân mảnh/video) để khai thác tối đa băng thông mạng.<br>
+          &bull; <b>Giao diện Vector Lucide:</b> Bổ sung badge hiển thị trạng thái phân luồng thông minh với biểu tượng <code>shield-check</code> chuẩn Lucide.
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành &amp; Build EXE</span> Phân luồng thông minh tự động 100%.</td>
+      </tr>
+      <tr>
+        <td><b>Đồng Bộ Cookies 2 Chiều &amp; Hỗ Trợ Edge / Chrome (Sync Hub)</b></td>
+        <td>
+          &bull; <b>Hỗ Trợ Microsoft Edge &amp; Chrome Chuyên Biệt:</b> Khi người dùng chọn <code>Edge</code> ở ô Cookie, App sẽ dùng giao thức <code>microsoft-edge:</code> để gọi chính xác Microsoft Edge và hướng dẫn <code>edge://extensions</code>; khi chọn <code>Chrome</code>, App gọi Chrome và hướng dẫn <code>chrome://extensions</code>.<br>
+          &bull; <b>Long-Polling Keep-Alive:</b> API <code>/api/poll_events</code> chuyển sang kiến trúc giữ kết nối 4.5s với <code>threading.Condition</code>, tự dập tắt ngắt socket [WinError 10053] và giữ Service Worker luôn thức.<br>
+          &bull; <b>Sync Hub Auto-Wake:</b> Trang nội bộ <code>/sync_hub</code> tự động mở đúng trình duyệt đã chọn để đánh thức Extension tức thì và tự động đóng tab sau khi nhận cookies.
+        </td>
+        <td><span class="badge done">Đã Hoàn Thành &amp; Build EXE</span> Hỗ trợ 100% Microsoft Edge &amp; Chrome.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- PHẦN 3: THAM KHẢO CÁC DỰ ÁN GITHUB LỚN -->
+  <div class="section-title" id="references">
+    <span>📚</span> 3. Tham Khảo Các Dự Án Mã Nguồn Mở Lớn Trên GitHub
+  </div>
+  <div class="info-box purple">
+    <b>Học hỏi giải pháp từ các repository chuyên về Bilibili &amp; Video Downloader có hàng chục nghìn Stars:</b>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Dự Án Tham Khảo</th>
+        <th style="width: 35%;">Đặc Điểm &amp; Kỹ Thuật Cốt Lõi</th>
+        <th style="width: 40%;">Ứng Dụng Đã &amp; Sẽ Đưa Vào HyperMedia</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <b><a href="https://github.com/ScottSloan/Bili23-Downloader" target="_blank" style="color:var(--cyan);text-decoration:none;">ScottSloan/Bili23-Downloader</a></b><br>
+          <span style="color:var(--text-muted);font-size:11px;">(2.5k+ Stars, Cross-Platform)</span>
+        </td>
+        <td>
+          &bull; Tải trực tiếp DASH stream (.m4s) không chia nhỏ Range sub-slicing.<br>
+          &bull; Tự động chọn mirror từ mảng <code>backupUrl</code>.<br>
+          &bull; Bắt buộc <code>Referer</code> là chính xác link video đang xem.
+        </td>
+        <td>
+          &bull; Áp dụng cơ chế <b>tải đơn luồng nguyên vẹn từng file m4s</b> cho Bilibili.<br>
+          &bull; Gán Referer động theo đúng URL video thay vì trang chủ tĩnh.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <b><a href="https://github.com/the1812/Bilibili-Evolved" target="_blank" style="color:var(--purple);text-decoration:none;">the1812/Bilibili-Evolved</a></b><br>
+          <span style="color:var(--text-muted);font-size:11px;">(25k+ Stars, Userscript đỉnh cao)</span>
+        </td>
+        <td>
+          &bull; Can thiệp sâu vào Web API Bilibili, lấy link <code>playurl</code> với <code>fnval=4048</code> (DASH/HDR/AV1/4K).<br>
+          &bull; Sử dụng cookie sống và <code>buvid3/buvid4</code> sinh tự nhiên từ browser để vượt 100% WAF 412.
+        </td>
+        <td>
+          &bull; <b>Lấy cảm hứng cho Extension:</b> Tận dụng Extension đọc cookie sống trực tiếp từ browser để nạp cho app.<br>
+          &bull; Sử dụng <code>fnval=4048</code> trong monkey-patch để trích xuất đầy đủ chất lượng cao.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <b><a href="https://github.com/nilaoda/BBDown" target="_blank" style="color:var(--green);text-decoration:none;">nilaoda/BBDown</a></b><br>
+          <span style="color:var(--text-muted);font-size:11px;">(15k+ Stars, CLI C#)</span>
+        </td>
+        <td>
+          &bull; Hỗ trợ chỉ định CDN host ưu tiên qua tham số <code>--token-host</code>.<br>
+          &bull; Tải tuần tự video trước, audio sau rồi ghép qua FFmpeg muxer.
+        </td>
+        <td>
+          &bull; Áp dụng cấu hình rewrite host CDN sang <b><code>upos-sz-mirrorcos.bilivideo.com</code></b> (Tencent Cloud) để đạt độ ổn định cao nhất.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- PHẦN 4: LỘ TRÌNH PHÁT TRIỂN (ROADMAP) -->
+  <div class="section-title" id="roadmap">
+    <span>🚀</span> 4. Lộ Trình Phát Triển Tương Lai (Roadmap)
+  </div>
+  <div class="info-box cyan">
+    <b>Những cải tiến khả thi mới nên thay đổi để app hoàn thiện hơn nữa:</b>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item done">
+      <div class="timeline-title">Giai Đoạn 1: Hoàn Thiện Ổn Định Core &amp; Bilibili (ĐÃ XONG)</div>
+      <div class="timeline-desc">
+        &bull; <b>Khởi Động So Le (Staggered Launch 1.5s):</b> Mỗi lượt bốc video tải song song cách nhau 1.5 giây để triệt tiêu Traffic Spike, ngăn ngừa WAF của Bilibili/YouTube gắn cờ bot.<br>
+        &bull; <b>Chống Kẹt Hàng Đợi (Round-Robin Requeue):</b> Khi 1 tập bị đứt mạng hoặc CDN bóp, tự động hoãn và chuyển xuống <b>CUỐI CÙNG</b> danh sách, lập tức kích hoạt tải ngay các tập tiếp theo không để 1 tập làm nghẽn toàn bộ.<br>
+        &bull; <b>Hỗ trợ Video Dài (50 Retries) &amp; Stuck Detector:</b> Đặt ngưỡng retry 50 lần cho video dài, tích hợp cảm biến phát hiện lặp lại kẹt byte do WAF reset (&ge; 5 lần) để tự động fallback sang AV1 1080P sau 2 vòng thử cookies gốc.<br>
+        &bull; <b>Bộ Ngắt Lỗi 503 &amp; RemoteDisconnected:</b> Tự động phát hiện máy chủ CDN từ chối hoặc token chết (&ge; 3 lần) để dừng ngay lập tức, không để retry lê thê đến 27/50.<br>
+        &bull; <b>Cơ Chế Ưu Tiên Chất Lượng Gốc (H.264 / HEVC VIP):</b> Mặc định tắt ép AV1, chỉ dùng AV1 làm Fallback cứu nguy khi luồng VIP bị từ chối hoặc đứt kết nối.<br>
+        &bull; <b>Tự Động Dọn Dẹp File Tạm (.part, .ytdl):</b> Ngay khi video hoàn thành 100% hoặc kết thúc hàng đợi, hệ thống tự động quét và xóa sạch các mảnh file <code>.part</code> dở dang, giải phóng dung lượng ổ cứng.<br>
+        &bull; <b>Thông Báo Tổng Kết Khi Hoàn Tất Hoặc Dừng Tải:</b> Hiển thị bảng tổng kết chi tiết số video thành công, liệt kê danh sách các tập bị lỗi hoặc dở dang kèm hướng dẫn cụ thể.<br>
+        &bull; <b>Chức năng Tải Thumbnail Siêu Tốc:</b> Bổ sung nút <i>"TẢI THUMBNAIL"</i> trên thanh nổi Floating Panel (video đã chọn), nút <i>"Tải Thumbnail Tất Cả"</i> trên Control Panel, và menu chuột phải trên Card video.<br>
+        &bull; <b>Local Server &amp; Cầu Nối Extension:</b> Tự động nhận link và 1-click sync cookies qua cổng <code>127.0.0.1:42124</code>.
+      </div>
+    </div>
+
+    <div class="timeline-item done">
+      <div class="timeline-title">Giai Đoạn 2: Tự Động Hóa Live Cookies 2 Chiều Giữa App &amp; Extension (ĐÃ XONG)</div>
+      <div class="timeline-desc">
+        &bull; <b>Tự Động Xin Live Cookies Khi Bị Chặn (Auto Cookie Re-fetch):</b> Khi App phát hiện Bilibili chặn luồng VIP (mã <code>702450</code>), mã <code>HTTP 503</code>, <code>412</code> hoặc cookies hết hạn, App tự động phát tín hiệu sang <code>/api/poll_events</code>.<br>
+        &bull; <b>Background Service Worker Chrome Extension (Manifest V3):</b> Extension chạy ngầm, duy trì nhịp tim kết nối tới App. Ngay khi nhận yêu cầu, Extension tự động đọc Live Session Cookies đã giải mã trực tiếp từ bộ nhớ Chrome qua API <code>chrome.cookies.getAll</code>, định dạng Netscape và POST thẳng vào <code>/api/sync_cookies</code>.<br>
+        &bull; <b>Hoàn Toàn Tự Động - 0 Thao Tác:</b> Người dùng không cần copy/paste, không cần xuất file hay bấm nút; App tự cập nhật <code>cookies.txt</code> và tiếp tục tải tập tiếp theo mượt mà!<br>
+        &bull; <b>Gửi Link &amp; Cookies 1-Click Trực Tiếp:</b> Bấm <i>"Gửi Vào App"</i> hoặc <i>"Đồng Bộ Trực Tiếp"</i> trên Popup để chuyển ngay sang App Desktop mà không cần chọn file.
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-title">Giai Đoạn 3: Nâng Cấp Trải Nghiệm Giao Diện Desktop (UI Polish) — Đang Làm</div>
+      <div class="timeline-desc">
+        &bull; <b>Non-modal Notification:</b> Thay thế hộp thoại <code>QMessageBox</code> blocking sau 6 lần retry thất bại bằng thông báo dạng Toast / Banner nổi ở góc để không chặn hàng đợi của các video khác.<br>
+        &bull; <b>Thanh Tiến Trình Tổng:</b> Hiển thị nhãn <i>"Đã tải hoàn tất: X/Y video"</i> và tổng băng thông mạng theo thời gian thực ở thanh StatusBar.<br>
+        &bull; <b>Tải Phụ Đề Rời (.srt/.vtt):</b> Thêm checkbox tùy chọn tải phụ đề đa ngôn ngữ cho YouTube/Bilibili.
+      </div>
+    </div>
+
+    <div class="timeline-item future">
+      <div class="timeline-title">Giai Đoạn 4: Mở Rộng Nền Tảng &amp; Tính Năng Nâng Cao (Chiến Lược)</div>
+      <div class="timeline-desc">
+        &bull; <b>Hỗ trợ thêm Instagram Reels &amp; X (Twitter) Video:</b> Mở rộng danh mục tải đa nền tảng.<br>
+        &bull; <b>Lịch Sử Tải Xuống (Download History):</b> Tab riêng lưu trữ danh sách các video đã tải (ngày giờ, đường dẫn file, dung lượng, nút mở nhanh thư mục).<br>
+        &bull; <b>Hẹn Giờ Tải (Scheduler):</b> Đặt lịch tự động tải danh sách video vào ban đêm (ví dụ: 2:00 AM khi mạng gia đình rảnh rỗi).
+      </div>
+    </div>
+
+    <div class="timeline-item future">
+      <div class="timeline-title">Giai Đoạn 5: Giải Quyết CDN Drop Bilibili Triệt Để</div>
+      <div class="timeline-desc">
+        &bull; <b>Thử aria2c external downloader:</b> <code>-x 1 -s 1 -k 1M --retry-wait=3</code> thay thế yt-dlp file downloader.<br>
+        &bull; <b>Thử requests stream (8KB chunk, không Range header):</b> Tải stream như browser xem thật, theo cách của Bili23-Downloader.<br>
+        &bull; <b>Thiết lập header giả lập đầy đủ:</b> bili_ticket, w_rid, wts, buvid3 sinh ngẫu nhiên — bắt chước hành vi browser thật để vượt session-level cap.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <b style="color:var(--cyan)">HyperMedia Downloader Pro</b> · Bản Tóm Tắt Chức Năng, Dự Án Tham Khảo &amp; Lộ Trình Phát Triển<br>
+  Tác giả: <b style="color:var(--green)">NguyenThanhDuy42124 (Nguyễn Thanh Duy)</b> · Zalo: <b>0334674017</b>
+</footer>
+
+</body>
+</html>

@@ -234,24 +234,23 @@ def patch_bilibili_anti_throttling():
         return
 
     def _real_extract(self, url):
+        import re
         res = original_extract(self, url)
         if isinstance(res, dict) and "formats" in res:
+            # Xác định URL referer chuẩn của video này
+            video_ref = res.get("webpage_url") or url or "https://www.bilibili.com/"
             for fmt in res.get("formats", []):
                 fmt_url = fmt.get("url") or ""
-                # Chuyển đổi CDN P2P mcdn giới hạn băng thông sang CDN Akamai/SZ Static siêu tốc
-                if "mcdn.bilivideo.com" in fmt_url:
-                    fmt["url"] = fmt_url.replace("mcdn.bilivideo.com", "upos-sz-staticacg.bilivideo.com")
-                # Đảm bảo gán đầy đủ HTTP Headers chống giới hạn tốc độ
+                # Chuyển đổi CDN P2P (mcdn, gotcha) và Akamai throttled sang Tencent Cloud MirrorCOS (Cực ổn định, không drop socket)
+                if any(k in fmt_url for k in ["akamaized.net", "mcdn.bilivideo.com", "mcdn.bilivideo.cn", "gotcha.bilivideo.com"]):
+                    fmt["url"] = re.sub(r'https?://[^/]+/', 'https://upos-sz-mirrorcos.bilivideo.com/', fmt_url)
+                # Đảm bảo gán đầy đủ HTTP Headers chống giới hạn tốc độ và bóp băng thông
                 fmt_headers = fmt.setdefault("http_headers", {})
-                fmt_headers["Referer"] = "https://www.bilibili.com/"
+                fmt_headers["Referer"] = video_ref
                 fmt_headers["Origin"] = "https://www.bilibili.com"
-                fmt_headers["User-Agent"] = (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-                )
         return res
 
     _real_extract._bili_throttle_patched = True
     BiliBiliIE._real_extract = _real_extract
-    print("[PATCH] Đã áp dụng fix bóp băng thông CDN Bilibili (Bypass Throttling)")
+    print("[PATCH] Đã áp dụng fix bóp băng thông CDN Bilibili (Bypass Throttling -> Tencent Cloud Mirror)")
 

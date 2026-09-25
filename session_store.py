@@ -2,11 +2,11 @@
 import json
 import os
 
-from app_constants import SESSION_FILE, base_dir
+from app_constants import SESSION_FILE
 
 
 def _session_path():
-    return os.path.join(base_dir(), SESSION_FILE)
+    return SESSION_FILE
 
 
 def save_session(items):

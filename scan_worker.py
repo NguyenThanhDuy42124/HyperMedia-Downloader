@@ -5,8 +5,8 @@ from PySide6.QtCore import QThread, Signal
 
 import yt_dlp
 
-from app_constants import AUTO_BROWSERS, BROWSER_MAP, DEFAULT_UA, cookies_file
-from site_utils import detect_site, is_bilibili_url, normalize_url
+from app_constants import AUTO_BROWSERS, BROWSER_MAP, DEFAULT_UA, get_random_user_agent, get_js_runtime, cookies_file
+from site_utils import detect_site, is_bilibili_url, is_youtube_url, normalize_url
 
 
 class ScanWorker(QThread):
@@ -93,15 +93,71 @@ class ScanWorker(QThread):
                 return f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
         return ""
 
+    @staticmethod
+    def _is_douyin_cdn_stream(url):
+        """Kiểm tra URL đã là CDN stream Douyin trực tiếp (zjcdn.com / douyinvod.com / snssdk play) -> bypass yt-dlp."""
+        u = (url or '').lower()
+        return any(d in u for d in ('zjcdn.com', 'douyinvod.com', 'aweme.snssdk.com/aweme/v1/play'))
+
+    def _emit_cdn_stream_item(self):
+        """Phát item trực tiếp từ CDN stream URL mà không cần yt-dlp.
+        title/thumb sẽ được override bởi _custom_metadata trong main_window nếu Extension đã gửi kèm."""
+        import os as _os
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(self.url)
+        qs = parse_qs(parsed.query)
+        # Lấy title từ query param hoặc từ path
+        title = (
+            qs.get('title', [None])[0]
+            or _os.path.basename(parsed.path).split('?')[0]
+            or 'Douyin Video'
+        )
+        heights = [1080]
+        formats_data = [{
+            'format_id': 'cdn-direct',
+            'ext': 'mp4',
+            'height': 1080,
+            'width': 1920,
+            'resolution': '1920x1080',
+            'fps': None,
+            'vcodec': 'h264',
+            'acodec': 'aac',
+            'filesize': 0,
+            'tbr': 0,
+            'vbr': 0,
+            'abr': 0,
+        }]
+        print(f'[STREAM BYPASS] CDN stream Douyin detected, bypass yt-dlp: {self.url[:80]}...')
+        self.found_item.emit(title, self.url, '', heights, formats_data)
+        self.finished.emit('')
+
     def run(self):
         try:
             self.url = normalize_url(self.url)
+            # === CDN Stream Bypass: zjcdn.com / douyinvod.com / snssdk play -> tải thẳng, không yt-dlp ===
+            if self._is_douyin_cdn_stream(self.url):
+                self._emit_cdn_stream_item()
+                return
+            selected_ua = get_random_user_agent()
+            site_headers = detect_site(self.url)
+            site_headers["User-Agent"] = selected_ua
+
             ydl_opts = {
                 "quiet": True,
                 "no_warnings": True,
-                "user_agent": DEFAULT_UA,
-                "http_headers": detect_site(self.url),
+                "user_agent": selected_ua,
+                "http_headers": site_headers,
+                "source_address": "0.0.0.0",
             }
+            js_runtime = get_js_runtime()
+            if js_runtime:
+                ydl_opts["js_runtimes"] = js_runtime
+            if is_youtube_url(self.url):
+                ydl_opts["extractor_args"] = {
+                    "youtube": {
+                        "player_client": ["web_embedded", "android"]
+                    }
+                }
 
             if self.mode == 2 or self.is_playlist_url(self.url):
                 ydl_opts["extract_flat"] = True
@@ -149,6 +205,14 @@ class ScanWorker(QThread):
                             "Bilibili chặn quét trang (412/352). Hãy đăng nhập "
                             "bilibili.com trong trình duyệt rồi export cookies "
                             "mới và Import vào tool."
+                        )
+                    elif "douyin.com" in self.url and any(
+                        x in err_str for x in ["Fresh cookies", "403", "ArgusSecurityPlugin"]
+                    ):
+                        self.error.emit(
+                            "Douyin Web chặn quét tự động (ArgusSecurityPlugin 403). "
+                            "Để tải video này: Bạn hãy mở video trên trình duyệt rồi dùng Extension "
+                            "(bấm nút 'Gửi Vào App' hoặc thanh nổi 'Tải Video Này') để tải luồng stream gốc!"
                         )
                     else:
                         raise last_err

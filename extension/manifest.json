@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "HyperMedia Helper - Video Link Grabber Pro",
-  "version": "1.2.0",
-  "description": "Trợ lý trích xuất link video Douyin, TikTok, Bilibili, YouTube 1-Click kèm Auto-Scroll Randomize chống Bot cho HyperMedia Downloader Pro.",
+  "version": "1.5.0",
+  "description": "Trợ lý trích xuất link video & Live Cookies Douyin, TikTok, Bilibili, YouTube 1-Click cho HyperMedia Downloader Pro.",
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
@@ -17,28 +17,53 @@
     },
     "default_title": "HyperMedia Video Grabber Pro"
   },
+  "background": {
+    "service_worker": "background.js"
+  },
   "permissions": [
     "activeTab",
+    "tabs",
     "clipboardWrite",
-    "storage"
+    "storage",
+    "cookies",
+    "alarms",
+    "webRequest"
   ],
   "host_permissions": [
-    "*://*.douyin.com/*",
-    "*://*.tiktok.com/*",
-    "*://*.bilibili.com/*",
-    "*://*.youtube.com/*"
+    "<all_urls>"
   ],
   "content_scripts": [
     {
       "matches": [
         "*://*.douyin.com/*",
+        "*://*.tiktok.com/*"
+      ],
+      "js": ["interceptor.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://*.douyin.com/*",
         "*://*.tiktok.com/*",
         "*://*.bilibili.com/*",
-        "*://*.youtube.com/*"
+        "*://*.youtube.com/*",
+        "http://127.0.0.1/*",
+        "http://localhost/*",
+        "<all_urls>"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["interceptor.js"],
+      "matches": [
+        "*://*.douyin.com/*",
+        "*://*.tiktok.com/*"
+      ]
     }
   ]
 }

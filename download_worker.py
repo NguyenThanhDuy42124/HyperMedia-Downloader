@@ -1,3 +1,4 @@
+import glob
 import os
 import sys
 import time
@@ -17,15 +18,26 @@ from PySide6.QtCore import QThread, Signal
 
 import yt_dlp
 
+import random
+
 from app_constants import (
     AUTO_BROWSERS,
     BROWSER_MAP,
     DEFAULT_UA,
+    get_random_user_agent,
+    get_js_runtime,
     RESOLUTION_MAP,
     cookies_file,
 )
 from logger import MyLogger, app_logger
-from site_utils import detect_site, is_bilibili_url, normalize_url
+from site_utils import detect_site, is_bilibili_url, is_youtube_url, normalize_url
+
+try:
+    from bilibili_patch import patch_bilibili_anti_throttling, patch_bilibili_extractor
+    patch_bilibili_extractor()
+    patch_bilibili_anti_throttling()
+except Exception as e:
+    pass
 
 
 class DownloadWorker(QThread):
@@ -34,6 +46,7 @@ class DownloadWorker(QThread):
     task_error = Signal(str)
     task_stopped = Signal()
     status_update = Signal(str)
+    cookie_refresh_requested = Signal(str, str)  # (domain, reason)
 
     def __init__(self, url, options, parent=None):
         super().__init__(parent)
@@ -56,6 +69,41 @@ class DownloadWorker(QThread):
         if not self._is_running or not line:
             return
         import re
+        if "Got error:" in line:
+            # 1. Bắt lỗi HTTP 503 hoặc RemoteDisconnected (Máy chủ CDN từ chối / Token chết)
+            if any(k in line for k in ["HTTP Error 503", "RemoteDisconnected", "Connection aborted", "Service Unavailable"]):
+                self._server_err_count = getattr(self, "_server_err_count", 0) + 1
+                if self._server_err_count == 2:
+                    dom = "bilibili.com" if is_bilibili_url(self.url) else "all"
+                    self.cookie_refresh_requested.emit(dom, "cdn_503_or_disconnect")
+                if self._server_err_count >= 3:
+                    safe_print(
+                        f"[SERVER 503 DETECTOR] Máy chủ CDN từ chối phục vụ ({line[:80].strip()}) ({self._server_err_count} lần)! "
+                        f"Dừng ngay để tránh kẹt hàng đợi và chuyển sang tập tiếp theo..."
+                    )
+                    self._is_running = False
+                    return
+
+            # 2. Bắt lỗi kẹt lặp lại cùng một vị trí byte
+            if "bytes read" in line:
+                m_err = re.search(r"Got error:\s*(\d+)\s+bytes read", line)
+                if m_err:
+                    b_read = int(m_err.group(1))
+                    if getattr(self, "_last_stuck_bytes", None) == b_read:
+                        self._stuck_repeat_count = getattr(self, "_stuck_repeat_count", 0) + 1
+                    else:
+                        self._last_stuck_bytes = b_read
+                        self._stuck_repeat_count = 1
+
+                    if self._stuck_repeat_count >= 5:
+                        safe_print(
+                            f"[STUCK DETECTOR] Bilibili CDN liên tục ngắt kết nối tại {b_read} bytes ({self._stuck_repeat_count} lần)! "
+                            f"Tự động dừng phiên hiện tại để nhường lượt cho tập khác & kích hoạt Fallback..."
+                        )
+                        self._is_running = False
+                        return
+            return
+
         m = re.search(r"\[download\]\s+([\d\.]+)%\s+of\s+~?\s*([\d\.\w]+)\s+at\s+([\d\.\w/]+)\s+ETA\s+([\d:]+)", line)
         if m:
             pct_str, total_str, speed_str, eta_str = m.groups()
@@ -82,28 +130,73 @@ class DownloadWorker(QThread):
         }
         chunk_size = chunk_size_map.get(chunk_mode, 10485760)
 
+        selected_ua = get_random_user_agent()
+        site_headers = detect_site(self.url)
+        site_headers["User-Agent"] = selected_ua
+
+        custom_title = (self.options.get("title") or "").strip()
+        if custom_title and custom_title != "Unknown" and len(custom_title) > 0:
+            safe_title = "".join(c for c in custom_title if c not in r'\/:*?"<>|').strip()
+            # Cắt ngắn nếu quá dài tránh lỗi MAX_PATH trên Windows
+            safe_title = safe_title[:150]
+            out_tmpl = f"{out_path}/{safe_title}.%(ext)s"
+        else:
+            out_tmpl = f"{out_path}/%(title)s.%(ext)s"
+
         opts = {
-            "outtmpl": f"{out_path}/%(title)s.%(ext)s",
+            "outtmpl": out_tmpl,
             "progress_hooks": [self.progress_hook],
             "quiet": True,
             "no_warnings": False,
             "logger": self._logger,
             "ffmpeg_location": self.get_ffmpeg_path(),
             "windowsfilenames": True,
-            "retries": 3,
-            "fragment_retries": 3,
-            "socket_timeout": 15,
-            "user_agent": DEFAULT_UA,
-            "http_headers": detect_site(self.url),
-            "concurrent_fragment_downloads": num_threads,
+            "retries": 10,
+            "fragment_retries": 10,
+            "extractor_retries": 5,
+            "socket_timeout": 45 if is_bilibili_url(self.url) else 30,
+            "continuedl": True,
+            "retry_sleep_functions": {
+                "http": lambda n: (min(10.0, 1.5 + random.uniform(0.5, 1.5) * min(n, 5)) if is_bilibili_url(self.url) else min(15.0, 1.5 * min(n, 10) + random.uniform(1.0, 3.0))),
+                "fragment": lambda n: (min(8.0, 1.2 + random.uniform(0.5, 1.5) * min(n, 5)) if is_bilibili_url(self.url) else min(10.0, 1.0 * min(n, 10) + random.uniform(0.5, 2.0))),
+                "extractor": lambda n: min(15.0, 2.0 * min(n, 5) + random.uniform(1.0, 2.5)),
+            },
+            "user_agent": selected_ua,
+            "http_headers": site_headers,
+            "concurrent_fragment_downloads": 6 if is_bilibili_url(self.url) else num_threads,
             "skip_unavailable_fragments": True,
-            "buffersize": 1024 * 1024,
+            "buffersize": 4 * 1024 * 1024 if is_bilibili_url(self.url) else 2 * 1024 * 1024,
         }
-        if chunk_size is not None:
-            opts["http_chunk_size"] = chunk_size
+        if is_bilibili_url(self.url):
+            # Config E: 6 luồng song song + chunk 8MB tối ưu cho Video lớn
+            # Với luồng audio nhỏ (~1MB), yt-dlp nếu gặp lỗi fragment sẽ tự retry đơn luồng
+            opts["http_chunk_size"] = 8 * 1024 * 1024
+        elif chunk_size is not None:
+            # Random jitter 10MB +- 64KB cho YouTube/Douyin
+            jittered_chunk = max(1048576, chunk_size + random.randint(-65536, 65536))
+            opts["http_chunk_size"] = jittered_chunk
 
         if self.options.get("skip_existing"):
             opts["overwrites"] = False
+
+        opts["source_address"] = "0.0.0.0"
+        js_runtime = get_js_runtime()
+        if js_runtime:
+            opts["js_runtimes"] = js_runtime
+        if is_youtube_url(self.url):
+            opts["extractor_args"] = {
+                "youtube": {
+                    "player_client": ["web_embedded", "android"]
+                }
+            }
+        elif is_bilibili_url(self.url):
+            # fnval=4048: bắt buộc để Bilibili API trả DASH stream thay vì MP4 đơn bị cap 720P
+            # DASH mode cho phép tải hình (30080 = 1080P H264) + tiếng (30280 = 192kbps AAC) riêng biệt
+            opts["extractor_args"] = {
+                "bilibili": {
+                    "fnval": [4048]
+                }
+            }
         return opts
 
     def _check_warnings_for_issues(self):
@@ -211,9 +304,45 @@ class DownloadWorker(QThread):
             "nocheckcertificate": True,
         })
 
+    def _cleanup_my_part_files(self, out_path):
+        """Chỉ dọn dẹp các file .part dở dang của chính video này, tuyệt đối không xóa nhầm file của các tác vụ tải song song khác."""
+        try:
+            target_hints = []
+            title = self.options.get("title") or getattr(self, "title", "")
+            if title:
+                safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:30]
+                if len(safe_title) >= 3:
+                    target_hints.append(safe_title.lower())
+
+            import re
+            m = re.search(r'(BV[0-9a-zA-Z]{10}|\d{15,22}|[a-zA-Z0-9_-]{11})', self.url)
+            if m:
+                target_hints.append(m.group(1).lower())
+
+            if not target_hints:
+                return
+
+            for pf in glob.glob(os.path.join(out_path, "*.part")):
+                fname = os.path.basename(pf).lower()
+                if any(hint in fname for hint in target_hints):
+                    try:
+                        os.remove(pf)
+                    except OSError:
+                        pass
+        except Exception:
+            pass
+
     def download_with_format_fallback(self, opts):
-        n_threads = opts.get("concurrent_fragment_downloads", 4)
-        safe_print(f"[LUỒNG TẢI] Kích hoạt {n_threads} luồng tải song song (Anti-Bot Mode)...")
+        n_threads = opts.get("concurrent_fragment_downloads", 1)
+        out_path = self.options.get("output_path", "downloads")
+        if n_threads > 1:
+            safe_print(f"[LUỒNG TẢI] Kích hoạt {n_threads} luồng tải song song (Anti-Bot Mode)...")
+        else:
+            safe_print("[LUỒNG TẢI] Kích hoạt chế độ Đơn Luồng Ổn Định 100% (Anti-Drop CDN Mode)...")
+
+        # Tự động dọn dẹp file .part dở dang của CHÍNH VIDEO NÀY để tránh kẹt continuedl
+        self._cleanup_my_part_files(out_path)
+
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([self.url])
@@ -221,18 +350,25 @@ class DownloadWorker(QThread):
             err_str = str(e) or ""
             is_bilibili = "bilibili.com" in self.url.lower()
             if is_bilibili and ("702450" in err_str or "bytes read" in err_str or "more expected" in err_str or "Giving up after" in err_str):
+                self.cookie_refresh_requested.emit("bilibili.com", "bilibili_702450_or_cdn_block")
                 safe_print("[AV1 AUTO-FALLBACK] Bilibili báo 702450 (Chặn luồng VIP H.264)! Tự động chuyển sang luồng 1080P AV1 Miễn Phí...")
                 av1_opts = dict(opts)
                 av1_opts.pop("http_chunk_size", None)
                 av1_opts["concurrent_fragment_downloads"] = 1
                 av1_opts["format"] = "bestvideo[vcodec^=av01]+bestaudio/bestvideo+bestaudio/best"
                 av1_opts["merge_output_format"] = "mp4"
+                av1_opts["overwrites"] = True
                 av1_opts["postprocessors"] = [
                     {"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}
                 ]
-                with yt_dlp.YoutubeDL(av1_opts) as ydl:
-                    ydl.download([self.url])
-                return
+                self._cleanup_my_part_files(out_path)
+                try:
+                    with yt_dlp.YoutubeDL(av1_opts) as ydl:
+                        ydl.download([self.url])
+                    return
+                except Exception as av1_err:
+                    safe_print(f"[AV1 FALLBACK ERROR] Luồng AV1 cũng không tải được: {av1_err}")
+                    raise av1_err
 
             is_socket_drop = "bytes read" in err_str or "more expected" in err_str or "Giving up after" in err_str
             if is_socket_drop and (opts.get("http_chunk_size") or opts.get("concurrent_fragment_downloads", 1) > 1):
@@ -241,22 +377,35 @@ class DownloadWorker(QThread):
                 safe_opts.pop("http_chunk_size", None)
                 safe_opts["concurrent_fragment_downloads"] = 1
                 safe_opts["overwrites"] = True
+                self._cleanup_my_part_files(out_path)
                 with yt_dlp.YoutubeDL(safe_opts) as ydl:
                     ydl.download([self.url])
                 return
+
+            is_youtube = is_youtube_url(self.url)
+            if is_youtube and ("403" in err_str or "Forbidden" in err_str or "Requested format" in err_str or "n_challenge" in err_str):
+                safe_print("[YOUTUBE AUTO-FALLBACK] YouTube hạn chế stream (HTTP 403 hoặc Cipher)! Kích hoạt luồng web_embedded/android fallback...")
+                yt_opts = dict(opts)
+                yt_opts["extractor_args"] = {"youtube": {"player_client": ["web_embedded", "android"]}}
+                yt_opts["source_address"] = "0.0.0.0"
+                js_runtime = get_js_runtime()
+                if js_runtime:
+                    yt_opts["js_runtimes"] = js_runtime
+                yt_opts["format"] = "bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best"
+                yt_opts["merge_output_format"] = "mp4"
+                self._cleanup_my_part_files(out_path)
+                try:
+                    with yt_dlp.YoutubeDL(yt_opts) as ydl:
+                        ydl.download([self.url])
+                    return
+                except Exception as yt_err:
+                    safe_print(f"[YOUTUBE FALLBACK ERROR] {yt_err}")
 
             is_format_issue = (
                 "Requested format is not available" in err_str
                 or "Only images are available" in err_str
             )
             if is_format_issue and self.options.get("file_type", "mp4") != "mp3":
-                issue = self._check_warnings_for_issues()
-                if issue == "n_challenge" or issue == "no_formats":
-                    raise yt_dlp.utils.DownloadError(
-                        "YouTube n-challenge failed: Cần cài Deno (https://deno.com) "
-                        "và chạy: pip install yt-dlp[default]. "
-                        "Xem https://github.com/yt-dlp/yt-dlp/wiki/EJS"
-                    )
                 heights = sorted(
                     set(self.options.get("available_heights") or []), reverse=True
                 )
@@ -308,7 +457,7 @@ class DownloadWorker(QThread):
                 return False, "no_known_site"
             has_auth = any(
                 k in content
-                for k in ["SID", "SSID", "LOGIN_INFO", "SESSDATA", "bili_jct", "DedeUserID", "sessionid", "ttwid", "passport_csrf_token"]
+                for k in ["SID", "SSID", "LOGIN_INFO", "SESSDATA", "bili_jct", "DedeUserID", "sessionid", "ttwid", "passport_csrf_token", "s_v_web_id"]
             )
             if not has_auth:
                 return False, "no_auth_cookies"
@@ -395,9 +544,12 @@ class DownloadWorker(QThread):
                             if chk.status_code == 200:
                                 safe_print(f"[Douyin 1080p UNLOCK] Tìm thấy luồng Full HD 1080p gốc ({vid})! Đang tải...")
                                 opts = self.get_base_opts(out_path)
+                                self.apply_format_options(opts)
                                 opts["http_headers"] = {
                                     "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
                                 }
+                                if cookies_valid:
+                                    opts["cookiefile"] = self.cookies_file_path
                                 # Đặt tên file đầu ra theo title video
                                 video_title = self.options.get("title", "") or f"douyin_{vid}"
                                 safe_title = "".join(c for c in video_title if c not in r'\/:*?"<>|').strip()
@@ -409,8 +561,10 @@ class DownloadWorker(QThread):
                         except Exception as e:
                             safe_print(f"[Douyin 1080p] Luồng 1080p không khả dụng, fallback: {e}")
 
-            # Bilibili & Douyin: ưu tiên cookies để đạt đúng chất lượng VIP đã chọn.
-            if (is_bilibili_url(self.url) or "douyin.com" in self.url) and cookies_valid:
+            # Douyin: uu tien cookies de dat dung chat luong VIP da chon.
+            # Bilibili: KHONG dung cookie cho tai khoan free - Bilibili cap free account xuong 480P
+            # trong khi anonymous duoc 1080P. Chi dung cookie neu la VIP (se detect qua format check).
+            if "douyin.com" in self.url and cookies_valid:
                 init_msg = f"TH:16|TIME:00:00:00|DL:Đang chuẩn bị...|SPD:Kết nối 16 luồng VIP...|ETA:Đang giải mã..."
                 self.status_update.emit(init_msg)
                 print(f"[Download] Dùng cookies cho {self.url} (VIP quality)...")
@@ -427,10 +581,44 @@ class DownloadWorker(QThread):
                         self.task_stopped.emit()
                         return
                     issue = self._check_warnings_for_issues()
-                    if issue == "expired_cookies":
-                        print("[Download] cookies.txt hết hạn, thử anonymous...")
+                    if issue == "expired_cookies" or "cookies are no longer valid" in err_str or "702450" in err_str:
+                        dom = "bilibili.com" if is_bilibili_url(self.url) else "all"
+                        self.cookie_refresh_requested.emit(dom, "expired_cookies")
+                        print(f"[Download] cookies.txt hết hạn ({dom}), đã gửi yêu cầu Extension làm mới...")
                     else:
                         print(f"[Download] cookies.txt thất bại, thử anonymous...: {err_str[:120]}")
+            elif is_bilibili_url(self.url) and cookies_valid:
+                # Kiem tra nhanh: cookie co cho 1080P khong? (neu co = VIP, neu khong = free account)
+                try:
+                    check_opts = {"quiet": True, "extractor_args": {"bilibili": {"fnval": [4048]}},
+                                  "cookiefile": self.cookies_file_path}
+                    with yt_dlp.YoutubeDL(check_opts) as _ydl:
+                        _info = _ydl.extract_info(self.url, download=False)
+                        _heights = [f.get("height", 0) for f in _info.get("formats", []) if f.get("height")]
+                        _has_1080p = any(h >= 1080 for h in _heights)
+                except Exception:
+                    _has_1080p = False
+
+                if _has_1080p:
+                    # VIP cookie -> su dung de mo khoa 4K/1080P60
+                    print(f"[Download] Bilibili VIP cookie xac nhan - dung cookie cho {self.url}")
+                    opts = self.get_base_opts(out_path)
+                    self.apply_format_options(opts)
+                    opts["cookiefile"] = self.cookies_file_path
+                    try:
+                        self.download_with_format_fallback(opts)
+                        self.task_finished.emit()
+                        return
+                    except Exception as e:
+                        err_str = str(e) or ""
+                        if "Stopped by user" in err_str:
+                            self.task_stopped.emit()
+                            return
+                        print(f"[Download] Bilibili VIP cookie that bai, thu anonymous: {err_str[:120]}")
+                else:
+                    # Free account cookie lam giam chat luong -> bo cookie, dung anonymous
+                    print("[Download] Bilibili: tai khoan free phat hien (cookie giam chat luong). Dung anonymous de lay 1080P...")
+                    # Tiep tuc xuong anonymous flow ben duoi
 
             init_msg = f"TH:16|TIME:00:00:00|DL:Đang chuẩn bị...|SPD:Khởi tạo 16 luồng...|ETA:Đang lấy link..."
             self.status_update.emit(init_msg)
@@ -568,7 +756,11 @@ class DownloadWorker(QThread):
 
                 if total > 0:
                     pct = int(downloaded / total * 100)
-                    self.task_progress.emit(pct)
+                    if not hasattr(self, "_max_pct"):
+                        self._max_pct = 0
+                    if pct > self._max_pct:
+                        self._max_pct = pct
+                    self.task_progress.emit(self._max_pct)
 
                 def fmt_size(b):
                     if not b:
@@ -604,7 +796,11 @@ class DownloadWorker(QThread):
                     else:
                         instant_speed = getattr(self, "_cached_instant_speed", speed)
 
-                dl_str = fmt_size(downloaded)
+                if not hasattr(self, "_max_downloaded"):
+                    self._max_downloaded = 0
+                if downloaded > self._max_downloaded:
+                    self._max_downloaded = downloaded
+                dl_str = fmt_size(self._max_downloaded)
                 tot_str = fmt_size(total) if total > 0 else "Chưa rõ"
 
                 eta_str = ""

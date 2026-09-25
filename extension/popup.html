@@ -7,19 +7,32 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
     body {
-      width: 375px;
+      width: 410px;
+      max-height: 590px;
+      overflow-x: hidden;
+      overflow-y: auto;
       background: #0c0c14;
       color: #E2E8F0;
-      padding: 16px;
+      padding: 12px 14px;
       user-select: none;
+    }
+    body::-webkit-scrollbar {
+      width: 5px;
+    }
+    body::-webkit-scrollbar-track {
+      background: #0c0c14;
+    }
+    body::-webkit-scrollbar-thumb {
+      background: #252538;
+      border-radius: 3px;
     }
     .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid #1f1f2e;
-      padding-bottom: 10px;
-      margin-bottom: 14px;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
     }
     .title {
       font-size: 14px;
@@ -38,10 +51,11 @@
       font-weight: bold;
     }
     .section-title {
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 700;
       color: #94A3B8;
-      margin-bottom: 8px;
+      margin-top: 10px;
+      margin-bottom: 6px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       display: flex;
@@ -50,10 +64,10 @@
     }
     .btn {
       width: 100%;
-      padding: 9px 12px;
+      padding: 7px 10px;
       border-radius: 6px;
       border: 1px solid transparent;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: bold;
       cursor: pointer;
       display: flex;
@@ -61,7 +75,7 @@
       justify-content: center;
       gap: 8px;
       transition: all 0.2s;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .btn-primary {
       background: #0284c7;
@@ -90,7 +104,7 @@
     .quick-chips {
       display: flex;
       gap: 6px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .chip {
       flex: 1;
@@ -114,17 +128,17 @@
     .batch-controls {
       display: flex;
       gap: 8px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .limit-input {
-      width: 90px;
+      width: 80px;
       background: #161622;
       border: 1px solid #2d2d42;
       border-radius: 6px;
       color: #00E5FF;
       font-weight: bold;
-      padding: 6px 10px;
-      font-size: 13px;
+      padding: 5px 8px;
+      font-size: 12px;
       text-align: center;
     }
     .limit-input:focus { outline: none; border-color: #00E5FF; }
@@ -136,9 +150,11 @@
       background: #12121c;
       border: 1px solid #252538;
       border-radius: 6px;
-      padding: 6px 10px;
-      margin-bottom: 8px;
-      font-size: 12px;
+      padding: 5px 8px;
+      margin-bottom: 6px;
+      font-size: 11.5px;
+      white-space: nowrap;
+      gap: 6px;
     }
     .random-box label {
       cursor: pointer;
@@ -146,28 +162,52 @@
       align-items: center;
       gap: 6px;
       color: #a7ffeb;
+      white-space: nowrap;
     }
     
     .result-box {
       width: 100%;
-      height: 90px;
+      height: 70px;
       background: #12121c;
       border: 1px solid #252538;
       border-radius: 6px;
       color: #a7ffeb;
       font-family: 'Consolas', monospace;
       font-size: 11px;
-      padding: 8px;
+      padding: 6px 8px;
       resize: none;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
       white-space: pre;
     }
+    .result-box::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .result-box::-webkit-scrollbar-thumb {
+      background: #252538;
+      border-radius: 3px;
+    }
     .status-msg {
-      font-size: 12px;
+      font-size: 11.5px;
       color: #00E5FF;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       min-height: 18px;
       font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+    .status-msg svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
     }
     .footer {
       border-top: 1px solid #1f1f2e;
@@ -178,24 +218,135 @@
       justify-content: space-between;
     }
     .footer a { color: #00E5FF; text-decoration: none; font-weight: bold; }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #12121c;
+      border: 1px solid #252538;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 18px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #252538;
+      transition: .25s;
+      border-radius: 18px;
+      border: 1px solid #3b3b54;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #94A3B8;
+      transition: .25s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #0284c7;
+      border-color: #00E5FF;
+    }
+    input:checked + .slider:before {
+      transform: translateX(18px);
+      background-color: #ffffff;
+    }
+    .btn svg, .title svg, .toggle-row svg, .section-title svg, .footer svg, .badge-site svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .badge-site {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #004d40;
+      color: #00E676;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="title">
-      <span>⚡ HyperMedia Grabber Pro</span>
+      <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      <span>HyperMedia Grabber Pro</span>
     </div>
-    <div id="siteBadge" class="badge-site">Đang nhận diện...</div>
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+      <div id="siteBadge" class="badge-site">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        <span>Đang nhận diện...</span>
+      </div>
+      <div id="appStatus" style="font-size:10px; color:#94A3B8; display:flex; align-items:center; gap:4px;">
+        <span id="appDot" style="width:7px; height:7px; border-radius:50%; background:#64748B;"></span>
+        <svg viewBox="0 0 24 24" width="11" height="11"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+        <span id="appPortText">Đang tìm App...</span>
+      </div>
+    </div>
   </div>
 
-  <div class="section-title">1. Tải Lẻ (Video Đang Xem)</div>
-  <button id="btnCopySingle" class="btn btn-primary">
-    <span>🎬 Copy Link Video Này (1080p)</span>
-  </button>
+  <div class="toggle-row">
+    <span style="display:flex; align-items:center; gap:6px;">
+      <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      <span>Thanh công cụ nổi trên web</span>
+    </span>
+    <label class="switch" title="Bật/Tắt hiển thị thanh công cụ nổi trực tiếp trên trang web">
+      <input type="checkbox" id="chkFloatingBar" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="section-title">
+    <span style="display:flex; align-items:center; gap:5px;">
+      <svg viewBox="0 0 24 24"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>
+      <span>1. Tải Lẻ (Video Đang Xem)</span>
+    </span>
+  </div>
+  <div style="display:flex; gap:6px; margin-bottom:10px;">
+    <button id="btnCopySingle" class="btn btn-primary" style="flex:1; margin-bottom:0;">
+      <svg viewBox="0 0 24 24"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>
+      <span>Copy Link (1080p)</span>
+    </button>
+    <button id="btnSendSingleToApp" class="btn" style="flex:1; margin-bottom:0; background:linear-gradient(135deg, #0284c7, #0d9488); color:white;">
+      <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+      <span>Gửi Vào App Ngay</span>
+    </button>
+  </div>
 
   <div class="section-title" style="margin-top: 12px;">
-    <span>2. Tải Hàng Loạt (Auto-Scroll)</span>
-    <span style="color:#00E676; font-size:10px;">Anti-Bot Random</span>
+    <span style="display:flex; align-items:center; gap:5px;">
+      <svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      <span>2. Tải Hàng Loạt (Auto-Scroll)</span>
+    </span>
+    <span style="color:#00E676; font-size:10px; display:inline-flex; align-items:center; gap:3px;">
+      <svg viewBox="0 0 24 24" width="11" height="11"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      <span>Anti-Bot</span>
+    </span>
   </div>
   
   <div class="quick-chips">
@@ -208,7 +359,10 @@
   <div class="random-box">
     <label>
       <input type="checkbox" id="chkHumanRandom" checked>
-      <span>Mô phỏng lướt ngẫu nhiên người thật</span>
+      <span style="display:inline-flex; align-items:center; gap:4px;">
+        <svg viewBox="0 0 24 24" width="13" height="13"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
+        <span>Mô phỏng lướt ngẫu nhiên người thật</span>
+      </span>
     </label>
     <span style="color:#00E5FF; font-size:11px;">(Random Delay & Step)</span>
   </div>
@@ -216,23 +370,67 @@
   <div class="batch-controls">
     <input type="number" id="inpLimit" class="limit-input" value="20" min="0" max="500" title="0 = Quét toàn bộ">
     <button id="btnStartBatch" class="btn btn-success" style="margin-bottom:0; flex:1;">
-      <span>⚡ Bắt Đầu Cuộn Random</span>
+      <svg viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+      <span>Bắt Đầu Cuộn Random</span>
     </button>
   </div>
   <button id="btnStopBatch" class="btn btn-danger" style="display:none;">
-    <span>⏹ Dừng Cuộn Trang</span>
+    <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+    <span>Dừng Cuộn Trang</span>
   </button>
 
   <div id="statusMsg" class="status-msg">Sẵn sàng trích xuất link.</div>
   <textarea id="txtResults" class="result-box" placeholder="Danh sách link video sẽ xuất hiện tại đây..." readonly></textarea>
 
-  <button id="btnCopyAll" class="btn btn-secondary" style="display:none;">
-    <span>📋 Copy Toàn Bộ Vào Clipboard</span>
+  <div style="display:flex; gap:6px; margin-bottom:8px;">
+    <button id="btnCopyAll" class="btn btn-secondary" style="display:none; flex:1; margin-bottom:0;">
+      <svg viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+      <span>Copy Toàn Bộ</span>
+    </button>
+    <button id="btnSendBatchToApp" class="btn btn-primary" style="display:none; flex:1; margin-bottom:0; background:linear-gradient(135deg, #0284c7, #0d9488);">
+      <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+      <span>Gửi Hết Vào App</span>
+    </button>
+  </div>
+
+  <div class="section-title" style="margin-top: 14px;">
+    <span style="display:flex; align-items:center; gap:5px;">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01"/><path d="M16 15.5v.01"/><path d="M12 12v.01"/><path d="M11 17v.01"/><path d="M7 14v.01"/></svg>
+      <span>3. Trích Xuất Cookies Cho App</span>
+    </span>
+    <span style="color:#00E5FF; font-size:10px; display:inline-flex; align-items:center; gap:3px;">
+      <svg viewBox="0 0 24 24" width="11" height="11"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      <span>1-Click</span>
+    </span>
+  </div>
+  <button id="btnSyncDirectToApp" class="btn" style="background: linear-gradient(135deg, #7c3aed, #0284c7); color: white; margin-bottom: 6px;">
+    <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+    <span>Đồng Bộ Cookies Thẳng Vào App (Không Cần File)</span>
+  </button>
+  <div style="display:flex; gap:6px; margin-bottom:6px;">
+    <button id="btnExportCookies" class="btn" style="flex:1; background: #1a1a2e; color: #a7ffeb; border: 1px solid #2d2d48; font-size: 11px; padding: 6px 8px; margin-bottom:0;">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01"/><path d="M16 15.5v.01"/><path d="M12 12v.01"/><path d="M11 17v.01"/><path d="M7 14v.01"/></svg>
+      <span>Tải cookies.txt</span>
+    </button>
+    <button id="btnExportAllCookies" class="btn" style="flex:1; background: #1a1a2e; color: #00E5FF; border: 1px solid #2d2d48; font-size: 11px; padding: 6px 8px; margin-bottom:0;">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+      <span>Tải Gộp 3 Trang</span>
+    </button>
+  </div>
+  <button id="btnCopyCookieText" class="btn" style="background: #12121c; color: #94A3B8; border: 1px solid #252538; font-size: 11px; padding: 5px 8px;">
+    <svg viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+    <span>Copy Chuỗi Cookie Vào Clipboard</span>
   </button>
 
   <div class="footer">
-    <span>Tác giả: <a href="https://github.com/NguyenThanhDuy42124" target="_blank">Nguyễn Thanh Duy</a></span>
-    <span>Zalo: <b>0334674017</b></span>
+    <span style="display:inline-flex; align-items:center; gap:4px;">
+      <svg viewBox="0 0 24 24" width="12" height="12"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+      <span>Tác giả: <a href="https://github.com/NguyenThanhDuy42124" target="_blank">Nguyễn Thanh Duy</a></span>
+    </span>
+    <span style="display:inline-flex; align-items:center; gap:4px;">
+      <svg viewBox="0 0 24 24" width="12" height="12"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      <span>Zalo: <b>0334674017</b></span>
+    </span>
   </div>
 
   <script src="popup.js"></script>

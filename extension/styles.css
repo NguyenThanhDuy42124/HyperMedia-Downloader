@@ -38,6 +38,25 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.hm-icon-svg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.hm-icon-svg svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .hm-btn-pill:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 14px rgba(0, 229, 255, 0.55);
@@ -62,6 +81,27 @@
 .hm-btn-green:hover {
   background: #00796b;
   color: #ffffff;
+}
+
+.hm-btn-purple {
+  background: #4c1d95;
+  color: #c4b5fd;
+  border: 1px solid rgba(167, 139, 250, 0.45);
+}
+.hm-btn-purple:hover {
+  background: #6d28d9;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.55);
+}
+
+.hm-btn-gradient {
+  background: linear-gradient(135deg, #0284c7, #0d9488);
+  color: #ffffff;
+  border: 1px solid rgba(0, 229, 255, 0.5);
+}
+.hm-btn-gradient:hover {
+  background: linear-gradient(135deg, #00B0FF, #14b8a6);
+  box-shadow: 0 4px 14px rgba(0, 229, 255, 0.6);
 }
 
 .hm-banner {
@@ -90,6 +130,26 @@
   cursor: pointer;
 }
 .hm-btn-stop:hover { background: #991b1b; color: #fff; }
+
+.hm-btn-close {
+  background: transparent;
+  color: #94A3B8;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  cursor: pointer;
+  margin-left: 2px;
+  transition: all 0.2s;
+}
+.hm-btn-close:hover {
+  background: #334155;
+  color: #ff8080;
+}
 
 #hm-toast {
   visibility: hidden;

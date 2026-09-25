@@ -2,7 +2,7 @@
 import logging
 import os
 
-from app_constants import LOG_FILE, base_dir, ensure_dir
+from app_constants import LOG_FILE, ensure_dir
 
 import re
 
@@ -28,7 +28,7 @@ def setup_app_logging():
     )
 
     try:
-        log_path = os.path.join(base_dir(), LOG_FILE)
+        log_path = LOG_FILE
         ensure_dir(os.path.dirname(log_path))
         fh = logging.FileHandler(log_path, encoding="utf-8")
         fh.setFormatter(fmt)
@@ -60,7 +60,7 @@ class MyLogger:
         if "[download]" in clean_msg:
             if "Got error" in clean_msg or "Retrying" in clean_msg or "more expected" in clean_msg or "Giving up" in clean_msg:
                 print(f"[RETRY LOG] {clean_msg}")
-            elif "%" in clean_msg and self.callback:
+            if self.callback:
                 try:
                     self.callback(clean_msg)
                 except Exception:
