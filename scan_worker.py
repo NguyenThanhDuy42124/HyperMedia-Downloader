@@ -7,6 +7,11 @@ import yt_dlp
 
 from app_constants import AUTO_BROWSERS, BROWSER_MAP, DEFAULT_UA, get_random_user_agent, get_js_runtime, cookies_file
 from site_utils import detect_site, is_bilibili_url, is_youtube_url, normalize_url
+import bilibili_patch
+bilibili_patch.patch_bilibili_extractor()
+bilibili_patch.patch_bilibili_space_titles()
+bilibili_patch.patch_bilibili_list_titles()
+bilibili_patch.patch_bilibili_anti_throttling()
 
 
 class ScanWorker(QThread):
@@ -155,7 +160,7 @@ class ScanWorker(QThread):
             if is_youtube_url(self.url):
                 ydl_opts["extractor_args"] = {
                     "youtube": {
-                        "player_client": ["web_embedded", "android"]
+                        "player_skip": ["configs"]
                     }
                 }
 

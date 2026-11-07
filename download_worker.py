@@ -116,6 +116,90 @@ class DownloadWorker(QThread):
             status_msg = f"TH:{n_threads}|TIME:00:00:00|DL:Đang tải / {total_str}|SPD:{speed_str}|ETA:Còn ~{eta_str}"
             self.status_update.emit(status_msg)
 
+    def _resolve_filename(self, out_path, raw_title=None):
+        """
+        Xác định tên file cuối cùng theo cấu hình:
+        1. Tiền tố (Prefix):
+           - Prefix Số Đầu: 1 ( Tên phim )
+           - Prefix Số Đầu (01): 01 ( Tên phim )
+           - Prefix Tập + số: Tập 1 - Tên phim
+           - Prefix Tên Film: [Tên Film] - Tập 1 (kết hợp ô nhập tên phim)
+        2. Tải trùng: Nếu file đã tồn tại và bật allow_duplicates -> tự thêm tiền tố Dup1_, Dup2_...
+        """
+        raw = (raw_title or self.options.get("title") or "").strip()
+        item_index = self.options.get("item_index", 1)
+        prefix_enabled = self.options.get("prefix_enabled", False)
+        prefix_mode = (self.options.get("prefix_mode") or self.options.get("prefix_pattern") or "").strip()
+        film_name = (self.options.get("film_name") or "").strip()
+        allow_duplicates = self.options.get("allow_duplicates", False)
+
+        has_title = bool(raw and raw != "Unknown")
+        target_name = film_name if film_name else raw
+        has_name = bool(target_name and target_name != "Unknown")
+
+        if prefix_enabled and prefix_mode:
+            idx_str = str(item_index)
+            idx_2digit = f"{item_index:02d}"
+            p_lower = prefix_mode.lower()
+
+            if "tên film" in p_lower or "ten film" in p_lower:
+                # 1. Prefix Tên Film: "Tên Film Bạn Nhập - (Tên Film Bạn Tải)"
+                film_prefix = film_name if film_name else "Phim"
+                if has_title:
+                    title = f"{film_prefix} - ({raw})"
+                else:
+                    title = f"{film_prefix} - (%(title)s)"
+            elif "01" in prefix_mode or "2 số" in p_lower or prefix_mode.startswith("01"):
+                # 2. Prefix Số Đầu (01): "01 ( Tên Film Bạn Tải )"
+                val = raw if has_title else "%(title)s"
+                title = f"{idx_2digit} ( {val} )"
+            elif "tập" in p_lower or "tap" in p_lower:
+                # 3. Prefix Tập + số: "Tập 1 - Tên Film Bạn Tải"
+                val = raw if has_title else "%(title)s"
+                title = f"Tập {idx_str} - {val}"
+            elif p_lower.startswith("[phim]"):
+                val = raw if has_title else "%(title)s"
+                title = f"[Phim] {val}"
+            elif "{title}" in prefix_mode:
+                val = raw if has_title else "%(title)s"
+                title = prefix_mode.replace("{title}", val).replace("{index}", idx_str).replace("{i}", idx_str).replace("{0index}", idx_2digit)
+            elif "{index}" in prefix_mode or "{i}" in prefix_mode:
+                pfx = prefix_mode.replace("{index}", idx_str).replace("{i}", idx_str).replace("{0index}", idx_2digit)
+                val = raw if has_title else "%(title)s"
+                title = f"{pfx}{val}"
+            else:
+                # 4. Prefix Số Đầu (1): "1 ( Tên Film Bạn Tải )"
+                val = raw if has_title else "%(title)s"
+                title = f"{idx_str} ( {val} )"
+        else:
+            title = raw if has_title else "%(title)s"
+
+        if "%(title)s" in title:
+            safe_title = None
+            out_tmpl = f"{out_path}/{title}.%(ext)s"
+        else:
+            safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:140]
+            if not safe_title:
+                safe_title = "video"
+
+            # Xử lý tự động thêm Dup1, Dup2... nếu cho phép tải trùng
+            if allow_duplicates:
+                exts = ["mp4", "mp3", "mkv", "webm", "part"]
+                exists = any(os.path.exists(os.path.join(out_path, f"{safe_title}.{ext}")) for ext in exts)
+                if exists:
+                    dup_idx = 1
+                    while True:
+                        cand = f"Dup{dup_idx}_{safe_title}"
+                        if not any(os.path.exists(os.path.join(out_path, f"{cand}.{ext}")) for ext in exts):
+                            safe_title = cand
+                            break
+                        dup_idx += 1
+
+            out_tmpl = f"{out_path}/{safe_title}.%(ext)s"
+
+        self._resolved_title = safe_title
+        return safe_title, out_tmpl
+
     def get_base_opts(self, out_path):
         self._logger = MyLogger(callback=self.on_stdout_progress)
         num_threads = self.options.get("num_threads", 16)
@@ -134,14 +218,7 @@ class DownloadWorker(QThread):
         site_headers = detect_site(self.url)
         site_headers["User-Agent"] = selected_ua
 
-        custom_title = (self.options.get("title") or "").strip()
-        if custom_title and custom_title != "Unknown" and len(custom_title) > 0:
-            safe_title = "".join(c for c in custom_title if c not in r'\/:*?"<>|').strip()
-            # Cắt ngắn nếu quá dài tránh lỗi MAX_PATH trên Windows
-            safe_title = safe_title[:150]
-            out_tmpl = f"{out_path}/{safe_title}.%(ext)s"
-        else:
-            out_tmpl = f"{out_path}/%(title)s.%(ext)s"
+        safe_title, out_tmpl = self._resolve_filename(out_path)
 
         opts = {
             "outtmpl": out_tmpl,
@@ -163,20 +240,23 @@ class DownloadWorker(QThread):
             },
             "user_agent": selected_ua,
             "http_headers": site_headers,
-            "concurrent_fragment_downloads": 6 if is_bilibili_url(self.url) else num_threads,
+            "concurrent_fragment_downloads": 6 if is_bilibili_url(self.url) else (min(8, max(4, num_threads)) if is_youtube_url(self.url) else num_threads),
             "skip_unavailable_fragments": True,
-            "buffersize": 4 * 1024 * 1024 if is_bilibili_url(self.url) else 2 * 1024 * 1024,
+            "buffersize": 4 * 1024 * 1024 if is_bilibili_url(self.url) else (2 * 1024 * 1024 if is_youtube_url(self.url) else 2 * 1024 * 1024),
         }
         if is_bilibili_url(self.url):
             # Config E: 6 luồng song song + chunk 8MB tối ưu cho Video lớn
             # Với luồng audio nhỏ (~1MB), yt-dlp nếu gặp lỗi fragment sẽ tự retry đơn luồng
             opts["http_chunk_size"] = 8 * 1024 * 1024
+        elif is_youtube_url(self.url):
+            # YouTube googlevideo CDN: 10MB chunking chống TCP throttling và rớt mạng
+            opts["http_chunk_size"] = 10485760
         elif chunk_size is not None:
-            # Random jitter 10MB +- 64KB cho YouTube/Douyin
+            # Random jitter 10MB +- 64KB cho Douyin/Khác
             jittered_chunk = max(1048576, chunk_size + random.randint(-65536, 65536))
             opts["http_chunk_size"] = jittered_chunk
 
-        if self.options.get("skip_existing"):
+        if self.options.get("skip_existing") and not self.options.get("allow_duplicates"):
             opts["overwrites"] = False
 
         opts["source_address"] = "0.0.0.0"
@@ -184,9 +264,11 @@ class DownloadWorker(QThread):
         if js_runtime:
             opts["js_runtimes"] = js_runtime
         if is_youtube_url(self.url):
+            # YouTube: Dùng client mặc định của yt-dlp cùng player_skip configs và JS Runtime (Node.js)
+            # Tránh ép player_client sang ios/android/mweb gây lỗi GVS PO Token và bị giới hạn xuống 360p
             opts["extractor_args"] = {
                 "youtube": {
-                    "player_client": ["web_embedded", "android"]
+                    "player_skip": ["configs"]
                 }
             }
         elif is_bilibili_url(self.url):
@@ -308,11 +390,13 @@ class DownloadWorker(QThread):
         """Chỉ dọn dẹp các file .part dở dang của chính video này, tuyệt đối không xóa nhầm file của các tác vụ tải song song khác."""
         try:
             target_hints = []
-            title = self.options.get("title") or getattr(self, "title", "")
+            title = getattr(self, "_resolved_title", None) or self.options.get("title") or getattr(self, "title", "")
             if title:
-                safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:30]
+                safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:30].lower()
                 if len(safe_title) >= 3:
-                    target_hints.append(safe_title.lower())
+                    target_hints.append(safe_title)
+                    target_hints.append(safe_title.replace(" ", "_"))
+                    target_hints.append(safe_title.replace("_", " "))
 
             import re
             m = re.search(r'(BV[0-9a-zA-Z]{10}|\d{15,22}|[a-zA-Z0-9_-]{11})', self.url)
@@ -384,9 +468,9 @@ class DownloadWorker(QThread):
 
             is_youtube = is_youtube_url(self.url)
             if is_youtube and ("403" in err_str or "Forbidden" in err_str or "Requested format" in err_str or "n_challenge" in err_str):
-                safe_print("[YOUTUBE AUTO-FALLBACK] YouTube hạn chế stream (HTTP 403 hoặc Cipher)! Kích hoạt luồng web_embedded/android fallback...")
+                safe_print("[YOUTUBE AUTO-FALLBACK] YouTube hạn chế stream (HTTP 403 hoặc Cipher)! Kích hoạt luồng fallback chuẩn...")
                 yt_opts = dict(opts)
-                yt_opts["extractor_args"] = {"youtube": {"player_client": ["web_embedded", "android"]}}
+                yt_opts["extractor_args"] = {"youtube": {"player_skip": ["configs"]}}
                 yt_opts["source_address"] = "0.0.0.0"
                 js_runtime = get_js_runtime()
                 if js_runtime:
@@ -550,10 +634,10 @@ class DownloadWorker(QThread):
                                 }
                                 if cookies_valid:
                                     opts["cookiefile"] = self.cookies_file_path
-                                # Đặt tên file đầu ra theo title video
+                                # Đặt tên file đầu ra theo title video (hỗ trợ Prefix và Dup1, Dup2...)
                                 video_title = self.options.get("title", "") or f"douyin_{vid}"
-                                safe_title = "".join(c for c in video_title if c not in r'\/:*?"<>|').strip()
-                                opts["outtmpl"] = os.path.join(out_path, f"{safe_title}.%(ext)s")
+                                _, out_tmpl = self._resolve_filename(out_path, raw_title=video_title)
+                                opts["outtmpl"] = out_tmpl
                                 with yt_dlp.YoutubeDL(opts) as ydl:
                                     ydl.download([direct_1080_url])
                                 self.task_finished.emit()
@@ -619,6 +703,29 @@ class DownloadWorker(QThread):
                     # Free account cookie lam giam chat luong -> bo cookie, dung anonymous
                     print("[Download] Bilibili: tai khoan free phat hien (cookie giam chat luong). Dung anonymous de lay 1080P...")
                     # Tiep tuc xuong anonymous flow ben duoi
+            elif is_youtube_url(self.url) and cookies_valid:
+                # YouTube: Dùng cookies trực tiếp giúp bypass bot-check / sign-in, mở khóa video 1080p+, tốc độ tối đa
+                init_msg = "TH:8|TIME:00:00:00|DL:Đang chuẩn bị...|SPD:Kết nối Google CDN (Cookies)...|ETA:Đang giải mã..."
+                self.status_update.emit(init_msg)
+                print(f"[Download] Dùng cookies YouTube cho {self.url}...")
+                try:
+                    opts = self.get_base_opts(out_path)
+                    self.apply_format_options(opts)
+                    opts["cookiefile"] = self.cookies_file_path
+                    self.download_with_format_fallback(opts)
+                    self.task_finished.emit()
+                    return
+                except Exception as e:
+                    err_str = str(e) or ""
+                    if "Stopped by user" in err_str:
+                        self.task_stopped.emit()
+                        return
+                    issue = self._check_warnings_for_issues()
+                    if issue == "expired_cookies" or "cookies are no longer valid" in err_str:
+                        self.cookie_refresh_requested.emit("youtube.com", "expired_cookies")
+                        print("[Download] cookies.txt YouTube hết hạn, chuyển sang anonymous...")
+                    else:
+                        print(f"[Download] cookies.txt YouTube lỗi ({err_str[:120]}), chuyển sang anonymous...")
 
             init_msg = f"TH:16|TIME:00:00:00|DL:Đang chuẩn bị...|SPD:Khởi tạo 16 luồng...|ETA:Đang lấy link..."
             self.status_update.emit(init_msg)
@@ -726,9 +833,17 @@ class DownloadWorker(QThread):
 
     def _file_exists(self, out_path):
         """Ước lượng tên file theo outtmpl giống yt-dlp; trả True nếu đã có."""
+        if self.options.get("allow_duplicates"):
+            return False
         from yt_dlp.utils import sanitize_filename
 
-        title = sanitize_filename(self.options.get("title") or "", restricted=False)
+        title = getattr(self, "_resolved_title", None)
+        if not title:
+            raw = self.options.get("title")
+            if raw:
+                title, _ = self._resolve_filename(out_path, raw_title=raw)
+            if not title:
+                title = sanitize_filename(raw or "", restricted=False)
         if not title:
             return False
         file_type = self.options.get("file_type", "mp4")

@@ -219,12 +219,12 @@ def patch_bilibili_list_titles():
 
 def patch_bilibili_anti_throttling():
     """Monkey-patch BiliBiliIE format parser to bypass CDN speed throttling and play-time limits.
-
-    Rewrites low-speed P2P CDN URLs (mcdn.bilivideo.com) to high-speed mainland/global
-    mirrors (upos-sz-staticacg.bilivideo.com), and enforces optimal headers.
+    Đồng thời tự động Fallback trích xuất qua x/web-interface/wbi/view/detail khi Bilibili dùng
+    giao diện web mới không nhúng window.__INITIAL_STATE__ trong mã nguồn HTML.
     """
     try:
         from yt_dlp.extractor.bilibili import BiliBiliIE
+        from yt_dlp.utils import traverse_obj, int_or_none, parse_qs
     except Exception as e:
         print(f"[PATCH] Không tìm thấy BiliBiliIE: {e}")
         return
@@ -235,19 +235,103 @@ def patch_bilibili_anti_throttling():
 
     def _real_extract(self, url):
         import re
-        res = original_extract(self, url)
-        if isinstance(res, dict) and "formats" in res:
-            # Xác định URL referer chuẩn của video này
-            video_ref = res.get("webpage_url") or url or "https://www.bilibili.com/"
-            for fmt in res.get("formats", []):
+        try:
+            res = original_extract(self, url)
+        except Exception as e:
+            if "Unable to extract initial state" not in str(e):
+                raise
+            # Bilibili giao diện mới không nhúng INITIAL_STATE trong HTML tĩnh
+            print(f"[PATCH] Bilibili giao diện mới không có INITIAL_STATE ({url[:60]}), chuyển sang API view/detail...")
+            video_id, prefix = self._match_valid_url(url).group("id", "prefix")
+            headers = self.geo_verification_headers()
+            headers.update({
+                "Referer": "https://www.bilibili.com/",
+                "Origin": "https://www.bilibili.com",
+            })
+            query = {"platform": "web"}
+            p_upper = prefix.upper() if prefix else "BV"
+            bvid = "BV" + video_id if p_upper == "BV" else video_id
+            if p_upper == "BV":
+                query["bvid"] = bvid
+            else:
+                query["aid"] = video_id
+
+            detail = self._download_json(
+                "https://api.bilibili.com/x/web-interface/wbi/view/detail", video_id,
+                note="Downloading video detail info (API fallback)",
+                query=self._sign_wbi(query, video_id), headers=headers)
+
+            view_data = traverse_obj(detail, ("data", "View"))
+            if not view_data:
+                raise e
+
+            card_data = traverse_obj(detail, ("data", "Card", "card")) or {}
+            title = view_data.get("title")
+            aid = view_data.get("aid")
+            pages = view_data.get("pages") or []
+            qs = parse_qs(url)
+            p_param = int_or_none(qs.get("p", [None])[-1])
+
+            if len(pages) > 1 and not p_param and getattr(self, "_yes_playlist", lambda *a: True)(video_id, video_id):
+                entries = []
+                for p in pages:
+                    p_cid = p.get("cid")
+                    p_num = p.get("page", 1)
+                    p_title = f"{title} p{p_num:02d} {p.get('part', '')}".strip()
+                    p_play = self._download_playinfo(bvid, p_cid, headers=headers)
+                    p_fmts = self.extract_formats(p_play) if p_play else []
+                    entries.append({
+                        "id": f"{bvid}_p{p_num}",
+                        "title": p_title,
+                        "formats": p_fmts,
+                        "duration": p.get("duration"),
+                        "thumbnail": view_data.get("pic"),
+                        "http_headers": {"Referer": url},
+                    })
+                res = self.playlist_result(entries, bvid, title)
+            else:
+                selected_page = pages[p_param - 1] if (p_param and p_param <= len(pages)) else (pages[0] if pages else {})
+                cid = selected_page.get("cid") or view_data.get("cid")
+                if p_param and len(pages) > 1:
+                    title = f"{title} p{p_param:02d} {selected_page.get('part', '')}".strip()
+
+                play_info = self._download_playinfo(bvid, cid, headers=headers)
+                formats = self.extract_formats(play_info) if play_info else []
+                subtitles = getattr(self, "_get_subtitles", lambda *a: {})(bvid, cid, aid)
+                res = {
+                    "id": bvid,
+                    "title": title,
+                    "formats": formats,
+                    "subtitles": subtitles,
+                    "thumbnail": view_data.get("pic"),
+                    "description": view_data.get("desc"),
+                    "duration": view_data.get("duration"),
+                    "uploader": card_data.get("name"),
+                    "uploader_id": str(card_data.get("mid", "")),
+                    "view_count": traverse_obj(view_data, ("stat", "view")),
+                    "like_count": traverse_obj(view_data, ("stat", "like")),
+                    "http_headers": {"Referer": url},
+                }
+
+        # Áp dụng rewrite CDN chống bóp băng thông cho tất cả format
+        def _patch_formats(fmts, ref_url):
+            for fmt in fmts:
                 fmt_url = fmt.get("url") or ""
-                # Chuyển đổi CDN P2P (mcdn, gotcha) và Akamai throttled sang Tencent Cloud MirrorCOS (Cực ổn định, không drop socket)
                 if any(k in fmt_url for k in ["akamaized.net", "mcdn.bilivideo.com", "mcdn.bilivideo.cn", "gotcha.bilivideo.com"]):
                     fmt["url"] = re.sub(r'https?://[^/]+/', 'https://upos-sz-mirrorcos.bilivideo.com/', fmt_url)
-                # Đảm bảo gán đầy đủ HTTP Headers chống giới hạn tốc độ và bóp băng thông
                 fmt_headers = fmt.setdefault("http_headers", {})
-                fmt_headers["Referer"] = video_ref
+                fmt_headers["Referer"] = ref_url
                 fmt_headers["Origin"] = "https://www.bilibili.com"
+
+        if isinstance(res, dict):
+            video_ref = res.get("webpage_url") or url or "https://www.bilibili.com/"
+            if "formats" in res:
+                _patch_formats(res.get("formats", []), video_ref)
+            elif "entries" in res:
+                for entry in res.get("entries", []):
+                    if isinstance(entry, dict) and "formats" in entry:
+                        _patch_formats(entry.get("formats", []), video_ref)
+
         return res
 
     _real_extract._bili_throttle_patched = True

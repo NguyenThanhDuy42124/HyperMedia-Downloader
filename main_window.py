@@ -314,6 +314,7 @@ class YoutubeDownloaderApp(QMainWindow):
         self._active = {}
         self._completed_ok = 0
         self._retry_counts = {}
+        self._waiting_pre_cookie_sync = False
 
         self.delegate = VideoItemDelegate(self.model, self)
 
@@ -427,6 +428,11 @@ class YoutubeDownloaderApp(QMainWindow):
         self.status_label.setText(
             f"Đã nhận {count} Live Cookies ({site_name}) từ {br_name} Extension! Sẵn sàng tải VIP."
         )
+
+        if getattr(self, "_waiting_pre_cookie_sync", False):
+            self._waiting_pre_cookie_sync = False
+            print(f"[AUTO-COOKIE SYNC] Đã nạp thành công Live Cookies mới từ Extension! Bắt đầu tải video ngay.")
+            self._pump_queue()
 
     def _on_worker_request_cookies(self, domain, reason):
         if hasattr(self, "local_server") and self.local_server:
@@ -839,6 +845,85 @@ class YoutubeDownloaderApp(QMainWindow):
         self.chk_skip.setChecked(True)
         adv_layout.addWidget(self.chk_skip)
 
+        self.chk_allow_dup = QCheckBox(" Cho phép tải trùng (Dup1, Dup2...)")
+        self.chk_allow_dup.setChecked(False)
+        self.chk_allow_dup.setToolTip("Khi file đã tồn tại trong thư mục, tự động thêm tiền tố Dup1_, Dup2_... thay vì bỏ qua hay ghi đè.")
+        adv_layout.addWidget(self.chk_allow_dup)
+
+        self.chk_prefix = QCheckBox(" Đặt tiền tố tên file (Prefix):")
+        self.chk_prefix.setChecked(False)
+        self.chk_prefix.setToolTip("Tự động đánh số thứ tự hoặc đặt tên theo phim/tập cho danh sách video.")
+        adv_layout.addWidget(self.chk_prefix)
+
+        self.prefix_container = QWidget()
+        prefix_vbox = QVBoxLayout(self.prefix_container)
+        prefix_vbox.setContentsMargins(15, 2, 0, 4)
+        prefix_vbox.setSpacing(6)
+
+        # 1. ComboBox chọn loại Prefix (không cho edit tự do để giao diện luôn gọn đẹp)
+        pref_row1 = QHBoxLayout()
+        pref_row1.setSpacing(6)
+        lbl_mode = QLabel("Kiểu:")
+        lbl_mode.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        self.prefix_cb = QComboBox()
+        self.prefix_cb.setEditable(False)
+        self.prefix_cb.addItems([
+            "Prefix Số Đầu",
+            "Prefix Số Đầu (01)",
+            "Prefix Tập + số",
+            "Prefix Tên Film",
+        ])
+        self.prefix_cb.setToolTip("Chọn kiểu đánh số và tiền tố cho danh sách video")
+        pref_row1.addWidget(lbl_mode)
+        pref_row1.addWidget(self.prefix_cb, 1)
+        prefix_vbox.addLayout(pref_row1)
+
+        # 2. Ô nhập Tên Film riêng biệt (chỉ hiển thị khi chọn Prefix Tên Film)
+        self.film_row_widget = QWidget()
+        pref_row2 = QHBoxLayout(self.film_row_widget)
+        pref_row2.setContentsMargins(0, 0, 0, 0)
+        pref_row2.setSpacing(6)
+        lbl_film = QLabel("Tên Film:")
+        lbl_film.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        self.txt_film_name = QLineEdit()
+        self.txt_film_name.setPlaceholderText("Nhập tên film (VD: Tây Du Ký)...")
+        self.txt_film_name.setStyleSheet("""
+            QLineEdit {
+                background: #181824;
+                color: #ffffff;
+                border: 1px solid #2d3748;
+                border-radius: 4px;
+                padding: 3px 6px;
+                font-size: 11px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #00E5FF;
+            }
+        """)
+        pref_row2.addWidget(lbl_film)
+        pref_row2.addWidget(self.txt_film_name, 1)
+        prefix_vbox.addWidget(self.film_row_widget)
+        self.film_row_widget.setVisible(False)
+
+        # 3. Xem trước trực quan mẫu tên file
+        self.lbl_prefix_preview = QLabel("Mẫu: 1 ( Tên video )")
+        self.lbl_prefix_preview.setStyleSheet("color: #00E5FF; font-size: 11px; font-weight: 500;")
+        prefix_vbox.addWidget(self.lbl_prefix_preview)
+
+        adv_layout.addWidget(self.prefix_container)
+        self.prefix_container.setVisible(False)
+
+        self.chk_auto_sync_cookie = QCheckBox(" Tự động lấy Cookies từ Extension khi tải")
+        self.chk_auto_sync_cookie.setChecked(True)
+        self.chk_auto_sync_cookie.setToolTip("Trước khi tải mỗi video, tự động yêu cầu Extension trích xuất và nạp Live Cookies mới nhất từ trình duyệt vào App (Tải video -> Lấy cookies -> Tải video).")
+        adv_layout.addWidget(self.chk_auto_sync_cookie)
+
+        self.chk_prefix.toggled.connect(self.prefix_container.setVisible)
+        self.prefix_cb.currentIndexChanged.connect(self._update_prefix_preview)
+        self.txt_film_name.textChanged.connect(self._update_prefix_preview)
+        self.chk_allow_dup.toggled.connect(self._on_allow_dup_toggled)
+        self.chk_skip.toggled.connect(self._on_skip_toggled)
+
         # Wrap in a widget to allow hiding
         self.adv_container = QWidget()
         self.adv_container.setLayout(adv_layout)
@@ -1040,6 +1125,38 @@ class YoutubeDownloaderApp(QMainWindow):
             self.model.set_field(uid, VideoRoles.Resolution, f"Custom ({selected_fmt})")
             self.view.viewport().update()
 
+    def _update_prefix_preview(self):
+        if not hasattr(self, "lbl_prefix_preview"):
+            return
+        mode = self.prefix_cb.currentText() if hasattr(self, "prefix_cb") else "Prefix Số Đầu"
+        film = self.txt_film_name.text().strip() if hasattr(self, "txt_film_name") else ""
+        is_film_mode = (mode == "Prefix Tên Film")
+
+        # Chỉ hiện ô nhập Tên Film khi chọn "Prefix Tên Film"
+        if hasattr(self, "film_row_widget"):
+            self.film_row_widget.setVisible(is_film_mode)
+
+        if mode == "Prefix Số Đầu":
+            res = "1 ( Tên Film Bạn Tải )"
+        elif mode == "Prefix Số Đầu (01)":
+            res = "01 ( Tên Film Bạn Tải )"
+        elif mode == "Prefix Tập + số":
+            res = "Tập 1 - Tên Film Bạn Tải"
+        elif mode == "Prefix Tên Film":
+            film_display = film if film else "Tên Film Bạn Nhập"
+            res = f"{film_display} - (Tên Film Bạn Tải)"
+        else:
+            res = "1 ( Tên Film Bạn Tải )"
+        self.lbl_prefix_preview.setText(f"Mẫu: {res}")
+
+    def _on_allow_dup_toggled(self, checked):
+        if checked and self.chk_skip.isChecked():
+            self.chk_skip.setChecked(False)
+
+    def _on_skip_toggled(self, checked):
+        if checked and hasattr(self, "chk_allow_dup") and self.chk_allow_dup.isChecked():
+            self.chk_allow_dup.setChecked(False)
+
     def load_settings(self):
         saved_name = self.settings.value("browser_name", "")
         if saved_name:
@@ -1060,6 +1177,26 @@ class YoutubeDownloaderApp(QMainWindow):
         self.limit_sb.setValue(self.settings.value("limit", 10, type=int))
         self.parallel_sb.setValue(self.settings.value("parallel", DEFAULT_PARALLEL, type=int))
         self.chk_skip.setChecked(self.settings.value("skip", True, type=bool))
+        if hasattr(self, "chk_allow_dup"):
+            self.chk_allow_dup.setChecked(self.settings.value("allow_duplicates", False, type=bool))
+        if hasattr(self, "chk_auto_sync_cookie"):
+            self.chk_auto_sync_cookie.setChecked(self.settings.value("auto_sync_cookie", True, type=bool))
+        if hasattr(self, "chk_prefix"):
+            is_pref = self.settings.value("prefix_enabled", False, type=bool)
+            self.chk_prefix.setChecked(is_pref)
+            if hasattr(self, "prefix_container"):
+                self.prefix_container.setVisible(is_pref)
+        if hasattr(self, "prefix_cb"):
+            saved_mode = self.settings.value("prefix_mode", "Prefix Số Đầu")
+            p_idx = self.prefix_cb.findText(saved_mode)
+            if p_idx >= 0:
+                self.prefix_cb.setCurrentIndex(p_idx)
+            else:
+                self.prefix_cb.setCurrentIndex(0)
+        if hasattr(self, "txt_film_name"):
+            self.txt_film_name.setText(self.settings.value("film_name", ""))
+        self._update_prefix_preview()
+
         self.last_cookies_dir = self.settings.value(
             "last_cookies_dir", os.path.join(os.path.expanduser("~"), "Downloads")
         )
@@ -1074,6 +1211,16 @@ class YoutubeDownloaderApp(QMainWindow):
         self.settings.setValue("limit", self.limit_sb.value())
         self.settings.setValue("parallel", self.parallel_sb.value())
         self.settings.setValue("skip", self.chk_skip.isChecked())
+        if hasattr(self, "chk_allow_dup"):
+            self.settings.setValue("allow_duplicates", self.chk_allow_dup.isChecked())
+        if hasattr(self, "chk_auto_sync_cookie"):
+            self.settings.setValue("auto_sync_cookie", self.chk_auto_sync_cookie.isChecked())
+        if hasattr(self, "chk_prefix"):
+            self.settings.setValue("prefix_enabled", self.chk_prefix.isChecked())
+        if hasattr(self, "prefix_cb"):
+            self.settings.setValue("prefix_mode", self.prefix_cb.currentText())
+        if hasattr(self, "txt_film_name"):
+            self.settings.setValue("film_name", self.txt_film_name.text().strip())
         if hasattr(self, "last_cookies_dir") and self.last_cookies_dir:
             self.settings.setValue("last_cookies_dir", self.last_cookies_dir)
         self.settings.setValue("geometry", self.saveGeometry())
@@ -1302,16 +1449,36 @@ class YoutubeDownloaderApp(QMainWindow):
     # Download queue
     def _build_options(self, item):
         use_av1 = self.chk_av1_trick.isChecked() or item.get("av1_auto_fallback", False)
+
+        # Tính item_index (vị trí thứ tự 1-based trong model)
+        uid = item.get("uid")
+        item_index = 1
+        if uid:
+            idx = self.model.index_for_uid(uid)
+            if idx.isValid():
+                item_index = idx.row() + 1
+
+        prefix_enabled = self.chk_prefix.isChecked() if hasattr(self, "chk_prefix") else False
+        prefix_mode = self.prefix_cb.currentText() if hasattr(self, "prefix_cb") else "Prefix Số Đầu"
+        film_name = self.txt_film_name.text().strip() if hasattr(self, "txt_film_name") else ""
+        allow_duplicates = self.chk_allow_dup.isChecked() if hasattr(self, "chk_allow_dup") else False
+
         base = {
             "output_path": self.save_folder,
             "browser": self.browser_cb.currentText(),
             "available_heights": list(item.get("heights") or []),
-            "skip_existing": self.chk_skip.isChecked(),
+            "skip_existing": self.chk_skip.isChecked() and not allow_duplicates,
             "num_threads": self.threads_sb.value(),
             "chunk_mode": self.chunk_cb.currentText(),
             "av1_smart_trick": use_av1,
             "format_id": item.get("format_id"),
             "title": item.get("title", ""),
+            "item_index": item_index,
+            "prefix_enabled": prefix_enabled,
+            "prefix_mode": prefix_mode,
+            "prefix_pattern": prefix_mode,
+            "film_name": film_name,
+            "allow_duplicates": allow_duplicates,
         }
         if use_av1 and item.get("type", "mp4") != "mp3":
             base.update({"file_type": "av1"})
@@ -1509,6 +1676,25 @@ class YoutubeDownloaderApp(QMainWindow):
             self.model.set_status(uid, "queued")
             self.model.set_progress(uid, 0)
             self._pending_uids.append(uid)
+
+        auto_sync = self.chk_auto_sync_cookie.isChecked() if hasattr(self, "chk_auto_sync_cookie") else True
+        ext_connected = hasattr(self, "local_server") and self.local_server and self.local_server.is_extension_connected(timeout=35)
+
+        if auto_sync and ext_connected:
+            print("[AUTO-COOKIE SYNC] Extension đang kết nối. Tự động lấy Live Cookies mới nhất từ trình duyệt trước khi tải...")
+            self.status_label.setText("Đang lấy Live Cookies từ Extension trước khi tải video...")
+            self.local_server.request_cookie_refresh("all", "auto_pre_download", force=True)
+            self._waiting_pre_cookie_sync = True
+
+            def _on_pre_cookie_timeout():
+                if getattr(self, "_waiting_pre_cookie_sync", False):
+                    self._waiting_pre_cookie_sync = False
+                    print("[AUTO-COOKIE SYNC] Hết thời gian chờ đồng bộ (800ms). Bắt đầu tải video ngay...")
+                    self._pump_queue()
+
+            QTimer.singleShot(800, _on_pre_cookie_timeout)
+            return
+
         self._pump_queue()
 
     def _pump_queue(self):
@@ -1635,7 +1821,18 @@ class YoutubeDownloaderApp(QMainWindow):
         # Dọn dẹp file .part nếu video đó đã hoàn thành
         self._cleanup_part_files(uid)
 
-        self._pump_queue()
+        auto_sync = self.chk_auto_sync_cookie.isChecked() if hasattr(self, "chk_auto_sync_cookie") else True
+        ext_connected = hasattr(self, "local_server") and self.local_server and self.local_server.is_extension_connected(timeout=35)
+
+        # Chu kỳ: Tải video -> Lấy cookies mới từ Extension -> Tải video tiếp theo
+        if auto_sync and ext_connected and self._pending_uids and not self._stop_requested:
+            print("[AUTO-COOKIE SYNC] Video đã hoàn thành. Đang lấy Live Cookies mới từ Extension cho video tiếp theo...")
+            self.status_label.setText("Đang lấy Cookies mới từ Extension cho video tiếp theo...")
+            self.local_server.request_cookie_refresh("all", "auto_next_video", force=True)
+            # Giãn cách 600ms để Extension đẩy cookie mới vào cookies.txt rồi mới kích hoạt video kế tiếp
+            QTimer.singleShot(600, self._pump_queue)
+        else:
+            self._pump_queue()
 
     def _on_worker_error(self, uid, err):
         self._active.pop(uid, None)
@@ -1691,6 +1888,7 @@ class YoutubeDownloaderApp(QMainWindow):
         if not self._is_downloading:
             return
         self._stop_requested = True
+        self._waiting_pre_cookie_sync = False
         print("[STOP] Đã bấm Dừng tải! Đang chấm dứt tất cả luồng tải ngay lập tức...")
         for uid in list(self._pending_uids):
             self.model.set_status(uid, "stopped")

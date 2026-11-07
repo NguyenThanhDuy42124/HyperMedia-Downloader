@@ -50,6 +50,7 @@ def main():
     bilibili_patch.patch_bilibili_extractor()
     bilibili_patch.patch_bilibili_space_titles()
     bilibili_patch.patch_bilibili_list_titles()
+    bilibili_patch.patch_bilibili_anti_throttling()
 
     app = QApplication(sys.argv)
     app.setApplicationName("HyperMedia Downloader Pro")

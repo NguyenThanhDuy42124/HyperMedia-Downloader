@@ -18,22 +18,39 @@ def get_random_user_agent():
 
 
 def get_js_runtime():
-    """Tự động phát hiện JavaScript Runtime (Node.js, Deno, Bun) để giải mã YouTube cipher/n-sig."""
-    import shutil
-    for name in ["node", "deno", "bun", "quickjs"]:
+    """Tự động phát hiện JavaScript Runtime (QuickJS nhúng sẵn, Node.js, Deno, Bun) để giải mã YouTube cipher/n-sig."""
+    import sys, shutil
+    # 1. Ưu tiên QuickJS (qjs.exe) nhúng kèm bên trong App (PyInstaller _MEIPASS hoặc cạnh file exe)
+    qjs_candidates = []
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        qjs_candidates.append(os.path.join(sys._MEIPASS, "qjs.exe"))
+    if getattr(sys, "executable", None):
+        qjs_candidates.append(os.path.join(os.path.dirname(sys.executable), "qjs.exe"))
+    qjs_candidates.append(os.path.join(os.path.abspath(base_dir()), "qjs.exe"))
+    qjs_candidates.append(os.path.join(os.getcwd(), "qjs.exe"))
+
+    for c in qjs_candidates:
+        if c and os.path.exists(c):
+            return {"quickjs": {"path": os.path.abspath(c)}}
+
+    # 2. Tìm kiếm runtime trong biến môi trường PATH
+    for name in ["qjs", "quickjs", "deno", "node", "bun"]:
         p = shutil.which(name)
         if p:
-            return {name: {}}
-    candidates = [
+            r_name = "quickjs" if name in ("qjs", "quickjs") else name
+            return {r_name: {"path": os.path.abspath(p)}}
+
+    # 3. Các đường dẫn cài đặt Node.js phổ biến trên Windows
+    node_candidates = [
         r"C:\nvm4w\nodejs\node.exe",
         r"C:\Program Files\nodejs\node.exe",
         r"C:\Program Files (x86)\nodejs\node.exe",
         os.path.expandvars(r"%LOCALAPPDATA%\Programs\node\node.exe"),
         os.path.expandvars(r"%APPDATA%\npm\node.exe"),
     ]
-    for c in candidates:
+    for c in node_candidates:
         if os.path.exists(c):
-            return {"node": {"path": c}}
+            return {"node": {"path": os.path.abspath(c)}}
     return None
 
 
