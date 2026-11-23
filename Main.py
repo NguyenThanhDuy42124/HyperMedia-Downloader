@@ -2,10 +2,22 @@ import os
 import subprocess
 import sys
 
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 import bilibili_patch
+from ca_bundle_utils import setup_ca_bundle_env
 from activation_dialog import ActivationDialog
 from app_constants import get_icon_path, migrate_legacy_data
 from license_manager import check_current_machine_license
@@ -45,6 +57,7 @@ def kill_previous_instances():
 
 def main():
     kill_previous_instances()  # Luôn dọn dẹp tiến trình cũ trước khi chạy
+    setup_ca_bundle_env()  # Khởi tạo an toàn môi trường TLS CA bundle
     migrate_legacy_data()  # Chuyển file cũ sang %APPDATA%\HyperMedia nếu cần
     setup_app_logging()
     bilibili_patch.patch_bilibili_extractor()

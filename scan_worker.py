@@ -6,7 +6,7 @@ from PySide6.QtCore import QThread, Signal
 import yt_dlp
 
 from app_constants import AUTO_BROWSERS, BROWSER_MAP, DEFAULT_UA, get_random_user_agent, get_js_runtime, cookies_file
-from site_utils import detect_site, is_bilibili_url, is_youtube_url, normalize_url
+from site_utils import detect_site, is_bilibili_url, is_youtube_url, normalize_url, is_drama_url
 import bilibili_patch
 bilibili_patch.patch_bilibili_extractor()
 bilibili_patch.patch_bilibili_space_titles()
@@ -136,12 +136,54 @@ class ScanWorker(QThread):
         self.found_item.emit(title, self.url, '', heights, formats_data)
         self.finished.emit('')
 
+    def _scan_drama_series(self):
+        """Quét metadata và danh sách tập phim ngắn thông qua provider adapter."""
+        from providers import load_series
+        try:
+            series = load_series(self.url)
+            if not series or not series.episodes:
+                self.error.emit(f"Không tìm thấy tập phim nào trong series: {self.url}")
+                return
+
+            episodes = series.episodes
+            if self.mode == 1 and len(episodes) > 1:
+                import re
+                m = re.search(r"[?&]ep=(\d+)", self.url)
+                if m:
+                    ep_no = int(m.group(1))
+                    matched = [e for e in episodes if e.num == ep_no]
+                    episodes = matched if matched else [episodes[0]]
+                else:
+                    episodes = [episodes[0]]
+            elif self.limit > 0:
+                episodes = episodes[:self.limit]
+
+            for ep in episodes:
+                title = f"{series.name} - {ep.title}"
+                thumb = ep.thumb or series.cover
+                heights = []
+                formats_data = [{
+                    "format_id": "best",
+                    "ext": "mp4",
+                    "resolution": "best",
+                }]
+                self.found_item.emit(title, ep.url, thumb, heights, formats_data)
+
+            self.finished.emit(f"Đã nạp {len(episodes)}/{series.episode_count} tập từ '{series.name}' ({series.platform.upper()})")
+        except Exception as e:
+            self.error.emit(f"Lỗi khi quét phim ngắn: {e}")
+
     def run(self):
         try:
             self.url = normalize_url(self.url)
             # === CDN Stream Bypass: zjcdn.com / douyinvod.com / snssdk play -> tải thẳng, không yt-dlp ===
             if self._is_douyin_cdn_stream(self.url):
                 self._emit_cdn_stream_item()
+                return
+
+            # === Phim ngắn (Short Drama Downloader: DramaBox, KissKH, v.v.) ===
+            if is_drama_url(self.url):
+                self._scan_drama_series()
                 return
             selected_ua = get_random_user_agent()
             site_headers = detect_site(self.url)

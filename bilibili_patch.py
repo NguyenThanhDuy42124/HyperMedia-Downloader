@@ -11,7 +11,7 @@ def patch_bilibili_extractor():
     try:
         from yt_dlp.extractor.bilibili import BiliBiliIE
     except Exception as e:
-        print(f"[PATCH] Không tìm thấy extractor BiliBili: {e}")
+        print(f"[PATCH] Khong tim thay extractor BiliBili: {e}")
         return
 
     original = getattr(BiliBiliIE, "_download_playinfo", None)
@@ -24,7 +24,7 @@ def patch_bilibili_extractor():
         except Exception as e:
             err_str = str(e) or ""
             if "412" in err_str or "Precondition Failed" in err_str:
-                print("[PATCH] BiliBili 412, thử lại với endpoint playurl cũ...")
+                print("[PATCH] BiliBili 412, thu lai voi endpoint playurl cu...")
                 params = {
                     "bvid": bvid,
                     "cid": cid,
@@ -51,7 +51,7 @@ def patch_bilibili_extractor():
 
     _download_playinfo._bili_412_patched = True
     BiliBiliIE._download_playinfo = _download_playinfo
-    print("[PATCH] Đã áp dụng fix HTTP 412 cho BiliBili")
+    print("[PATCH] Da ap dung fix HTTP 412 cho BiliBili")
 
 
 def patch_bilibili_space_titles():
@@ -65,7 +65,7 @@ def patch_bilibili_space_titles():
         from yt_dlp.extractor import bilibili as _b
         from yt_dlp.utils import unescapeHTML
     except Exception as e:
-        print(f"[PATCH] Không tìm thấy extractor BilibiliSpaceVideoIE: {e}")
+        print(f"[PATCH] Khong tim thay extractor BilibiliSpaceVideoIE: {e}")
         return
 
     IE = _b.BilibiliSpaceVideoIE
@@ -160,7 +160,7 @@ def patch_bilibili_space_titles():
 
     _real_extract._bili_space_titles_patched = True
     IE._real_extract = _real_extract
-    print("[PATCH] Đã áp dụng fix title/thumbnail cho trang space Bilibili")
+    print("[PATCH] Da ap dung fix title/thumbnail cho trang space Bilibili")
 
 
 def patch_bilibili_list_titles():
@@ -174,7 +174,7 @@ def patch_bilibili_list_titles():
         from yt_dlp.extractor import bilibili as _b
         from yt_dlp.utils import traverse_obj, unescapeHTML, variadic
     except Exception as e:
-        print(f"[PATCH] Không tìm thấy extractor BilibiliSpaceListBaseIE: {e}")
+        print(f"[PATCH] Khong tim thay extractor BilibiliSpaceListBaseIE: {e}")
         return
 
     IE = _b.BilibiliSpaceListBaseIE
@@ -214,7 +214,7 @@ def patch_bilibili_list_titles():
             yield r
 
     IE._get_entries = _get_entries
-    print("[PATCH] Đã áp dụng fix title/thumbnail cho list Bilibili (合集/series/fav)")
+    print("[PATCH] Da ap dung fix title/thumbnail cho list Bilibili")
 
 
 def patch_bilibili_anti_throttling():
@@ -226,7 +226,7 @@ def patch_bilibili_anti_throttling():
         from yt_dlp.extractor.bilibili import BiliBiliIE
         from yt_dlp.utils import traverse_obj, int_or_none, parse_qs
     except Exception as e:
-        print(f"[PATCH] Không tìm thấy BiliBiliIE: {e}")
+        print(f"[PATCH] Khong tim thay BiliBiliIE: {e}")
         return
 
     original_extract = getattr(BiliBiliIE, "_real_extract", None)
@@ -241,7 +241,7 @@ def patch_bilibili_anti_throttling():
             if "Unable to extract initial state" not in str(e):
                 raise
             # Bilibili giao diện mới không nhúng INITIAL_STATE trong HTML tĩnh
-            print(f"[PATCH] Bilibili giao diện mới không có INITIAL_STATE ({url[:60]}), chuyển sang API view/detail...")
+            print(f"[PATCH] Bilibili giao dien moi khong co INITIAL_STATE ({url[:60]}), chuyen sang API view/detail...")
             video_id, prefix = self._match_valid_url(url).group("id", "prefix")
             headers = self.geo_verification_headers()
             headers.update({
@@ -336,5 +336,5 @@ def patch_bilibili_anti_throttling():
 
     _real_extract._bili_throttle_patched = True
     BiliBiliIE._real_extract = _real_extract
-    print("[PATCH] Đã áp dụng fix bóp băng thông CDN Bilibili (Bypass Throttling -> Tencent Cloud Mirror)")
+    print("[PATCH] Da ap dung fix bop bang thong CDN Bilibili (Bypass Throttling -> Tencent Cloud Mirror)")
 

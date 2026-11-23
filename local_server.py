@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 from collections import deque
+import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 from PySide6.QtCore import QObject, Signal
@@ -69,6 +70,14 @@ class LocalServer(QObject):
     links_received = Signal(list)            # emit list of URLs
     items_received = Signal(list)            # emit list of dicts with url, title, thumb
     cookies_synced = Signal(str, int, str)   # emit (site_name, count, browser_name)
+    miniapp_cookie_synced = Signal(str, int, str) # legacy emit (domain, count, browser_name)
+
+    # MiniApp sync lifecycle signals theo yêu cầu chuẩn hóa kiến trúc
+    miniapp_sync_started = Signal(str, str)         # (request_id, browser)
+    miniapp_sync_received = Signal(str, int, str)   # (request_id, count, browser)
+    miniapp_sync_saved = Signal(str, int)           # (request_id, count)
+    miniapp_sync_failed = Signal(str, str)          # (request_id, reason)
+    miniapp_sync_timeout = Signal(str)              # (request_id)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -84,6 +93,8 @@ class LocalServer(QObject):
         self._last_cookie_sync_time = 0
         self._last_cookie_sync_count = 0
         self._last_cookie_sync_site = ""
+        self._current_miniapp_sync_id = ""
+        self._current_miniapp_sync_time = 0
         self.last_client_browser = "Trình duyệt"
 
     def is_extension_connected(self, timeout=30):
@@ -107,6 +118,32 @@ class LocalServer(QObject):
             self._pending_events.append(event)
             self._event_condition.notify_all()
             safe_print(f"[LOCAL SERVER] Đã xếp hàng yêu cầu lấy Live Cookies ({domain}) cho Extension (Lý do: {reason})...")
+            return True
+
+    def request_miniapp_douyin_cookie_refresh(self, force=False, request_id=""):
+        """Yêu cầu Chrome Extension đồng bộ cookies cho MiniApp Douyin."""
+        now = time.time()
+        with self._event_condition:
+            if not force and (now - self._last_cookie_req_time < 8):
+                return False
+            self._last_cookie_req_time = now
+            req_id = request_id or f"sync_{int(now * 1000)}_{uuid.uuid4().hex[:6]}"
+            self._current_miniapp_sync_id = req_id
+            self._current_miniapp_sync_time = now
+            event = {
+                "action": "MINIAPP_DOUYIN_COOKIE_SYNC",
+                "fallback_action": "REQUEST_COOKIES",
+                "provider": "miniapp_douyin",
+                "domain": "douyin.com",
+                "domains": ["douyin.com", "iesdouyin.com"],
+                "reason": "miniapp_douyin_sync",
+                "sync_request_id": req_id,
+                "timestamp": now,
+            }
+            self._pending_events.append(event)
+            self._event_condition.notify_all()
+            safe_print(f"[LOCAL SERVER] Đã xếp hàng yêu cầu đồng bộ Cookie Douyin (req_id={req_id}) cho Extension...")
+            self.miniapp_sync_started.emit(req_id, self.last_client_browser)
             return True
 
     def get_and_clear_events(self, timeout=8.0):
@@ -469,9 +506,25 @@ class LocalServer(QObject):
                     self._send_cors_headers()
                     self.end_headers()
 
+                elif clean_path == "/api/miniapp_douyin/sync_cookie":
+                    try:
+                        data = json.loads(body.decode("utf-8"))
+                        self._handle_miniapp_cookie_sync(data)
+                        return
+                    except Exception as e:
+                        safe_print(f"[LOCAL SERVER] Lỗi nhận MiniApp Douyin cookie: {e}")
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self._send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": "Dữ liệu yêu cầu không hợp lệ"}).encode("utf-8"))
+
                 elif clean_path == "/api/sync_cookies":
                     try:
                         data = json.loads(body.decode("utf-8"))
+                        if data.get("action") == "MINIAPP_DOUYIN_COOKIE_SYNC" or data.get("provider") == "miniapp_douyin":
+                            self._handle_miniapp_cookie_sync(data)
+                            return
                         raw_text = data.get("cookies", "")
                         source_site = data.get("domain", "Unknown")
 
@@ -530,6 +583,23 @@ class LocalServer(QObject):
                                 outer._last_cookie_sync_site = source_site
                                 outer.cookies_synced.emit(source_site, cookie_count, outer.last_client_browser)
 
+                                # Tự động cập nhật phiên DPAPI cho MiniApp Douyin nếu có cookie douyin.com
+                                douyin_parts = []
+                                for key_tuple, line_val in cookie_map.items():
+                                    if "douyin.com" in key_tuple[0]:
+                                        p = line_val.split("\t")
+                                        if len(p) == 7:
+                                            douyin_parts.append(f"{p[5]}={p[6]}")
+                                if douyin_parts:
+                                    from providers.miniapp_douyin_client import save_douyin_session
+                                    save_douyin_session({
+                                        "provider": "miniapp_douyin",
+                                        "domain": "douyin.com",
+                                        "cookies": "; ".join(douyin_parts),
+                                        "captured_at": time.time(),
+                                    })
+                                    outer.miniapp_cookie_synced.emit("douyin.com", len(douyin_parts), outer.last_client_browser)
+
                                 self.send_response(200)
                                 self.send_header("Content-Type", "application/json; charset=utf-8")
                                 self._send_cors_headers()
@@ -546,5 +616,74 @@ class LocalServer(QObject):
                     self.send_response(404)
                     self._send_cors_headers()
                     self.end_headers()
+
+            def _handle_miniapp_cookie_sync(self, data):
+                req_id = ""
+                if isinstance(data, dict):
+                    req_id = data.get("sync_request_id") or getattr(outer, "_current_miniapp_sync_id", "") or "sync_default"
+
+                if not isinstance(data, dict):
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self._send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": "Payload không phải JSON object"}).encode("utf-8"))
+                    outer.miniapp_sync_failed.emit(req_id, "Payload không phải JSON object")
+                    return
+
+                prov = data.get("provider", "miniapp_douyin")
+                if prov != "miniapp_douyin":
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self._send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": f"Provider không hợp lệ: {prov}"}).encode("utf-8"))
+                    outer.miniapp_sync_failed.emit(req_id, f"Provider không hợp lệ: {prov}")
+                    return
+
+                domain = str(data.get("domain", "")).lower().strip()
+                allowed_douyin_domains = ("douyin.com", "iesdouyin.com")
+                is_allowed = any(domain == d or domain.endswith("." + d) for d in allowed_douyin_domains)
+                if not is_allowed:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self._send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": f"Chỉ chấp nhận domain douyin.com / iesdouyin.com, nhận: {domain}"}).encode("utf-8"))
+                    outer.miniapp_sync_failed.emit(req_id, f"Chỉ chấp nhận domain douyin.com, nhận: {domain}")
+                    return
+
+                raw_cookies = data.get("cookies")
+                if not raw_cookies or (isinstance(raw_cookies, list) and len(raw_cookies) == 0):
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self._send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": "Không tìm thấy cookie Douyin hợp lệ"}).encode("utf-8"))
+                    outer.miniapp_sync_failed.emit(req_id, "Không tìm thấy cookie Douyin hợp lệ")
+                    return
+
+                from providers.miniapp_douyin_client import save_douyin_session
+                ok, msg = save_douyin_session(data)
+                if not ok:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self._send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": msg}).encode("utf-8"))
+                    outer.miniapp_sync_failed.emit(req_id, msg)
+                    return
+
+                cookie_count = len(raw_cookies) if isinstance(raw_cookies, list) else len([c for c in str(raw_cookies).split(";") if c.strip()])
+                safe_print(f"[LOCAL SERVER] Nhận đồng bộ phiên MiniApp Douyin ({cookie_count} cookies, req_id={req_id}) từ {outer.last_client_browser}")
+                outer.miniapp_sync_received.emit(req_id, cookie_count, outer.last_client_browser)
+                outer.miniapp_sync_saved.emit(req_id, cookie_count)
+                outer.miniapp_cookie_synced.emit("douyin.com", cookie_count, outer.last_client_browser)
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self._send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True, "provider": "miniapp_douyin", "count": cookie_count, "browser": outer.last_client_browser, "sync_request_id": req_id}).encode("utf-8"))
 
         return ApiHandler

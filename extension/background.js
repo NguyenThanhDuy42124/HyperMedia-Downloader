@@ -78,11 +78,38 @@ function cookiesToNetscape(cookies) {
   return lines.join('\n');
 }
 
+// Allowlist các domain được phép trích xuất cookie MiniApp Douyin
+const MINIAPP_DOUYIN_ALLOWED_DOMAINS = ['douyin.com', 'iesdouyin.com'];
+
+function isDouyinDomain(domain) {
+  if (!domain) return false;
+  const clean = domain.replace(/^\./, '').toLowerCase();
+  return MINIAPP_DOUYIN_ALLOWED_DOMAINS.some(d => clean === d || clean.endsWith('.' + d));
+}
+
 // Lấy tất cả cookies sống từ trình duyệt cho các trang hỗ trợ
 async function extractLiveCookies(requestedDomain = 'all') {
-  const targetDomains = requestedDomain === 'all' 
-    ? ['bilibili.com', 'youtube.com', 'douyin.com', 'tiktok.com']
-    : [requestedDomain, 'bilibili.com', 'youtube.com'];
+  let targetDomains = [];
+  if (requestedDomain === 'all') {
+    targetDomains = [
+      'bilibili.com',
+      'youtube.com',
+      'douyin.com',
+      'iesdouyin.com',
+      'tiktok.com',
+      'hongguoduanju.com',
+      'fanqienovel.com',
+      'fqnovel.com',
+      'hainanyuyue.com',
+      'novelquickapp.com'
+    ];
+  } else if (requestedDomain === 'douyin.com' || requestedDomain === 'miniapp_douyin') {
+    targetDomains = ['douyin.com', 'iesdouyin.com'];
+  } else if (requestedDomain === 'hongguo' || requestedDomain === 'hongguoduanju.com') {
+    targetDomains = ['hongguoduanju.com', 'fanqienovel.com', 'fqnovel.com', 'hainanyuyue.com', 'novelquickapp.com'];
+  } else {
+    targetDomains = [requestedDomain, 'bilibili.com', 'youtube.com'];
+  }
 
   let allCookies = [];
   for (const d of targetDomains) {
@@ -100,7 +127,18 @@ async function extractLiveCookies(requestedDomain = 'all') {
   try {
     const tabs = await chrome.tabs.query({ active: true });
     if (tabs && tabs.length > 0) {
-      const allowedDomains = ['bilibili.com', 'douyin.com', 'youtube.com', 'tiktok.com'];
+      const allowedDomains = [
+        'bilibili.com',
+        'douyin.com',
+        'iesdouyin.com',
+        'youtube.com',
+        'tiktok.com',
+        'hongguoduanju.com',
+        'fanqienovel.com',
+        'fqnovel.com',
+        'hainanyuyue.com',
+        'novelquickapp.com'
+      ];
       for (const t of tabs) {
         if (t.url && allowedDomains.some(d => t.url.includes(d))) {
           const tabList = await chrome.cookies.getAll({ url: t.url });
@@ -222,6 +260,71 @@ async function syncCookiesToApp(port, domain = 'all', reason = '') {
   return false;
 }
 
+// Xử lý gửi riêng cookies Douyin MiniApp qua endpoint bảo mật DPAPI
+async function syncMiniAppDouyinCookiesToApp(port, requestId = '') {
+  try {
+    const rawCookies = await extractLiveCookies('miniapp_douyin');
+    const filtered = (rawCookies || []).filter(c => isDouyinDomain(c.domain));
+
+    if (filtered.length === 0) {
+      console.warn('[HyperMedia BG] Không tìm thấy cookies Douyin trong trình duyệt');
+      // Gửi thông báo rỗng về App để kết thúc trạng thái chờ đợi ngay lập tức
+      await fetch(`http://127.0.0.1:${port}/api/miniapp_douyin/sync_cookie`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: 'miniapp_douyin',
+          domain: 'douyin.com',
+          sync_request_id: requestId || '',
+          cookies: []
+        }),
+        signal: AbortSignal.timeout(3000)
+      }).catch(() => {});
+      return false;
+    }
+
+    const payload = {
+      provider: 'miniapp_douyin',
+      domain: 'douyin.com',
+      sync_request_id: requestId || '',
+      cookies: filtered.map(c => ({
+        name: c.name,
+        value: c.value,
+        domain: c.domain,
+        path: c.path,
+        secure: c.secure,
+        httpOnly: c.httpOnly,
+        expirationDate: c.expirationDate
+      })),
+      captured_at: Math.floor(Date.now() / 1000),
+      expires_at: Math.floor(Date.now() / 1000) + 86400 * 30
+    };
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/miniapp_douyin/sync_cookie`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(4000)
+    });
+
+    if (res.ok) {
+      console.log(`[HyperMedia BG] Đã đồng bộ ${filtered.length} cookies Douyin MiniApp bảo mật vào Desktop App!`);
+      // Đồng thời cập nhật vào cookies.txt chung
+      const netscapeText = cookiesToNetscape(filtered);
+      fetch(`http://127.0.0.1:${port}/api/sync_cookies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookies: netscapeText, domain: 'douyin.com' }),
+        signal: AbortSignal.timeout(3000)
+      }).catch(() => {});
+      return true;
+    }
+  } catch (e) {
+    console.error('[HyperMedia BG] Lỗi sync MiniApp Douyin cookies:', e);
+  }
+  return false;
+}
+
 // Vòng lặp Long-Polling / Heartbeat kiểm tra sự kiện từ App
 async function pollAppEvents() {
   if (isPolling) return;
@@ -246,7 +349,10 @@ async function pollAppEvents() {
       const data = await res.json();
       if (data.events && data.events.length > 0) {
         for (const ev of data.events) {
-          if (ev.action === 'REQUEST_COOKIES') {
+          if (ev.action === 'MINIAPP_DOUYIN_COOKIE_SYNC' || (ev.action === 'REQUEST_COOKIES' && ev.provider === 'miniapp_douyin')) {
+            console.log(`[HyperMedia BG] Nhận yêu cầu MINIAPP_DOUYIN_COOKIE_SYNC từ App:`, ev);
+            await syncMiniAppDouyinCookiesToApp(port, ev.sync_request_id || '');
+          } else if (ev.action === 'REQUEST_COOKIES') {
             console.log(`[HyperMedia BG] Nhận yêu cầu cấp Live Cookies từ App:`, ev);
             await syncCookiesToApp(port, ev.domain || 'all', ev.reason || 'App requested');
           }

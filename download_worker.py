@@ -30,7 +30,7 @@ from app_constants import (
     cookies_file,
 )
 from logger import MyLogger, app_logger
-from site_utils import detect_site, is_bilibili_url, is_youtube_url, normalize_url
+from site_utils import detect_site, is_bilibili_url, is_youtube_url, normalize_url, is_drama_url
 
 try:
     from bilibili_patch import patch_bilibili_anti_throttling, patch_bilibili_extractor
@@ -54,6 +54,8 @@ class DownloadWorker(QThread):
         self.options = options or {}
         self._is_running = True
         self.cookies_file_path = cookies_file()
+        out_p = self.options.get("output_path") or os.path.join(os.getcwd(), "downloads")
+        self._resolve_filename(out_p)
 
     def stop(self):
         self._is_running = False
@@ -126,6 +128,15 @@ class DownloadWorker(QThread):
            - Prefix Tên Film: [Tên Film] - Tập 1 (kết hợp ô nhập tên phim)
         2. Tải trùng: Nếu file đã tồn tại và bật allow_duplicates -> tự thêm tiền tố Dup1_, Dup2_...
         """
+        # Nếu options đã định nghĩa sẵn exact_file_stem (từ MiniApp/Drama phân cấp hoặc custom)
+        if self.options.get("exact_file_stem"):
+            provided = self.options["exact_file_stem"]
+            safe_title = os.path.basename(provided)
+            self._resolved_title = safe_title
+            self.exact_file_stem = os.path.join(out_path, safe_title)
+            out_tmpl = f"{out_path}/{safe_title}.%(ext)s"
+            return safe_title, out_tmpl
+
         raw = (raw_title or self.options.get("title") or "").strip()
         item_index = self.options.get("item_index", 1)
         prefix_enabled = self.options.get("prefix_enabled", False)
@@ -198,6 +209,10 @@ class DownloadWorker(QThread):
             out_tmpl = f"{out_path}/{safe_title}.%(ext)s"
 
         self._resolved_title = safe_title
+        if safe_title:
+            self.exact_file_stem = os.path.join(out_path, safe_title)
+        else:
+            self.exact_file_stem = None
         return safe_title, out_tmpl
 
     def get_base_opts(self, out_path):
@@ -387,30 +402,31 @@ class DownloadWorker(QThread):
         })
 
     def _cleanup_my_part_files(self, out_path):
-        """Chỉ dọn dẹp các file .part dở dang của chính video này, tuyệt đối không xóa nhầm file của các tác vụ tải song song khác."""
+        """Chỉ dọn dẹp các file .part theo exact file stem của chính video này, không quét wildcard toàn thư mục."""
         try:
-            target_hints = []
-            title = getattr(self, "_resolved_title", None) or self.options.get("title") or getattr(self, "title", "")
-            if title:
-                safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:30].lower()
-                if len(safe_title) >= 3:
-                    target_hints.append(safe_title)
-                    target_hints.append(safe_title.replace(" ", "_"))
-                    target_hints.append(safe_title.replace("_", " "))
-
-            import re
-            m = re.search(r'(BV[0-9a-zA-Z]{10}|\d{15,22}|[a-zA-Z0-9_-]{11})', self.url)
-            if m:
-                target_hints.append(m.group(1).lower())
-
-            if not target_hints:
+            stem = getattr(self, "exact_file_stem", None)
+            if not stem:
+                safe_print("[DỌN DẸP BỎ QUA] Worker không có exact_file_stem. Bỏ qua cleanup để bảo đảm an toàn.")
                 return
 
-            for pf in glob.glob(os.path.join(out_path, "*.part")):
-                fname = os.path.basename(pf).lower()
-                if any(hint in fname for hint in target_hints):
+            stems = [stem]
+            if " " in stem:
+                stems.append(stem.replace(" ", "_"))
+            if "_" in stem:
+                stems.append(stem.replace("_", " "))
+
+            for s in stems:
+                for ext in (".part", ".ytdl", ".temp", ".mp4.part", ".mkv.part", ".webm.part", ".mp3.part"):
+                    fpath = s + ext
+                    if os.path.exists(fpath):
+                        try:
+                            os.remove(fpath)
+                        except OSError:
+                            pass
+                import glob
+                for frag in glob.glob(glob.escape(s) + "*.part-Frag*"):
                     try:
-                        os.remove(pf)
+                        os.remove(frag)
                     except OSError:
                         pass
         except Exception:
@@ -577,9 +593,425 @@ class DownloadWorker(QThread):
                 continue
         return False
 
+    @staticmethod
+    def _mask_id(raw_id):
+        s = str(raw_id or "").strip()
+        if not s:
+            return "***"
+        return f"{s[:6]}***" if len(s) > 6 else s
+
+    def _resolve_drama_provider(self):
+        import providers
+        prov = providers.detect_provider(self.url)
+        if prov:
+            return prov
+        hint = self.options.get("provider") or self.options.get("provider_id") or self.options.get("platform")
+        if hint:
+            return providers.get_provider(str(hint))
+        return None
+
+    def _is_drama_task(self):
+        if is_drama_url(self.url):
+            return True
+        hint = self.options.get("provider") or self.options.get("provider_id") or self.options.get("platform")
+        if hint:
+            import providers
+            if providers.get_provider(str(hint)) is not None:
+                return True
+        return False
+
+    def _reconstruct_episode_from_options(self):
+        from providers.base import Episode, Subtitle, ACCESS_STATE_FREE
+        direct_ep = self.options.get("drama_episode")
+        if isinstance(direct_ep, Episode):
+            return direct_ep, True
+
+        ep_id = self.options.get("episode_id")
+        ep_num = self.options.get("episode_number")
+        acc_state = self.options.get("access_state")
+        if not ep_id and ep_num is None and not acc_state:
+            return None, False
+
+        subs = []
+        for s in (self.options.get("subtitles") or []):
+            if isinstance(s, Subtitle):
+                subs.append(s)
+            elif isinstance(s, dict) and s.get("url"):
+                subs.append(Subtitle(lang=s.get("lang", "sub"), name=s.get("name", "sub"), url=s["url"]))
+        if not subs and self.options.get("subtitle_url"):
+            subs.append(Subtitle(lang="sub", name="sub", url=self.options["subtitle_url"]))
+
+        num_val = int(ep_num) if ep_num else 1
+        ep = Episode(
+            num=num_val,
+            title=self.options.get("title") or f"Tập {num_val}",
+            url=self.options.get("source_url") or self.url,
+            direct_url=self.options.get("direct_url"),
+            locked=bool(self.options.get("locked", False)),
+            subtitles=subs,
+            extra=dict(self.options.get("extra") or {}),
+            provider_id=str(self.options.get("provider_id") or self.options.get("provider") or ""),
+            series_id=str(self.options.get("series_id") or ""),
+            episode_id=str(ep_id or ""),
+            episode_number=num_val,
+            access_state=str(acc_state or ACCESS_STATE_FREE),
+            expires_at=self.options.get("expires_at"),
+        )
+        is_complete = bool(ep.episode_id and acc_state and (ep.extra or ep.direct_url))
+        return ep, is_complete
+
+    @staticmethod
+    def _is_valid_resolved_media_url(stream_url):
+        if not stream_url or not isinstance(stream_url, str):
+            return False
+        u = stream_url.strip()
+        if not u.startswith(("http://", "https://")):
+            return False
+        from urllib.parse import urlparse
+        try:
+            p = urlparse(u)
+            path_l = (p.path or "").lower()
+            host_l = (p.netloc or "").lower()
+            if host_l.endswith(("hongguoduanju.com", "hainanyuyue.com", "novelquickapp.com")) and (
+                path_l.startswith("/detail") or path_l.startswith("/player") or path_l.startswith("/s/")
+            ):
+                return False
+        except Exception:
+            return False
+        return True
+
+    def download_direct_stream(self, stream_url, final_filepath, headers=None):
+        """Tải direct MP4 qua requests hỗ trợ HTTP 200/206 và resume .part an toàn."""
+        import requests
+        from ca_bundle_utils import get_ca_bundle_path
+
+        out_dir = os.path.dirname(os.path.abspath(final_filepath))
+        os.makedirs(out_dir, exist_ok=True)
+        part_path = f"{final_filepath}.part"
+        existing_size = os.path.getsize(part_path) if os.path.exists(part_path) else 0
+
+        req_headers = dict(headers or {})
+        if "User-Agent" not in req_headers:
+            req_headers["User-Agent"] = DEFAULT_UA
+        if existing_size > 0:
+            req_headers["Range"] = f"bytes={existing_size}-"
+
+        resp = requests.get(
+            stream_url,
+            headers=req_headers,
+            stream=True,
+            timeout=25,
+            verify=get_ca_bundle_path(),
+        )
+        if resp.status_code not in (200, 206):
+            raise RuntimeError(f"HTTP Error {resp.status_code}")
+
+        ct = (resp.headers.get("Content-Type") or "").lower()
+        if "text/html" in ct:
+            raise RuntimeError(f"URL trả về trang HTML thay vì video ({ct})")
+
+        safe_print(f"[DOWNLOAD] HTTP={resp.status_code}")
+
+        mode = "ab" if (resp.status_code == 206 and existing_size > 0) else "wb"
+        downloaded = existing_size if mode == "ab" else 0
+        total_bytes = 0
+        cl = resp.headers.get("Content-Length")
+        if cl and cl.isdigit():
+            total_bytes = int(cl) + (existing_size if mode == "ab" else 0)
+
+        start_t = time.time()
+        with open(part_path, mode) as f:
+            for chunk in resp.iter_content(chunk_size=131072):
+                if not self._is_running:
+                    raise yt_dlp.utils.DownloadError("Stopped by user")
+                if not chunk:
+                    continue
+                f.write(chunk)
+                downloaded += len(chunk)
+                if total_bytes > 0:
+                    pct = min(100, int(downloaded * 100 / total_bytes))
+                    self.task_progress.emit(pct)
+                elapsed = max(0.05, time.time() - start_t)
+                spd_mb = (downloaded / (1024 * 1024)) / elapsed
+                dl_mb = downloaded / (1024 * 1024)
+                tot_mb = total_bytes / (1024 * 1024) if total_bytes > 0 else 0
+                tot_txt = f"{tot_mb:.1f} MB" if tot_mb > 0 else "Chưa rõ"
+                self.status_update.emit(f"TH:1|TIME:00:00:00|DL:{dl_mb:.1f} MB / {tot_txt}|SPD:{spd_mb:.2f} MB/s|ETA:Đang tải")
+
+        if not self._is_running:
+            raise yt_dlp.utils.DownloadError("Stopped by user")
+
+        os.replace(part_path, final_filepath)
+        return resp.status_code
+
+    def _download_drama_episode(self, out_path):
+        """Tải tập phim ngắn từ Drama Provider với resolve-before-download và isolated headers."""
+        import providers
+        from providers.base import vtt_to_srt
+        import re
+
+        if not self._is_running:
+            self.task_stopped.emit()
+            return
+
+        os.makedirs(out_path, exist_ok=True)
+
+        provider = self._resolve_drama_provider()
+        if not provider:
+            raise ValueError(f"Không tìm thấy provider phim ngắn cho URL: {self.url}")
+
+        raw_pid = getattr(provider, "platform_id", None)
+        pid = raw_pid if (isinstance(raw_pid, str) and raw_pid) else "drama"
+        self.status_update.emit(f"Đang làm mới luồng phát từ {provider.display_name}...")
+
+        # Kiểm tra nhanh access guard từ queue metadata trước khi gọi bất kỳ network nào
+        reconstructed_ep, is_complete_ep = self._reconstruct_episode_from_options()
+        if reconstructed_ep and (reconstructed_ep.locked or reconstructed_ep.access_state not in ("free", "authorized")):
+            reason = reconstructed_ep.access_reason or "yêu cầu mua VIP trên ứng dụng gốc"
+            raise ValueError(f"Tập {reconstructed_ep.num} không thể tải ({reason})")
+
+        target_ep = None
+        series_name = self.options.get("series_name") or ""
+        series = self.options.get("drama_series")
+
+        if isinstance(self.options.get("drama_episode"), type(reconstructed_ep)) and self.options.get("drama_episode") is not None:
+            target_ep = self.options.get("drama_episode")
+        elif is_complete_ep and not series:
+            target_ep = reconstructed_ep
+
+        def _load_and_match_episode():
+            nonlocal series, series_name
+            if not series or not series.episodes:
+                series = provider.load_series(self.url)
+            if not series or not series.episodes:
+                raise ValueError(f"Không thể đọc thông tin series từ: {self.url}")
+            series_name = series_name or series.name
+
+            matched = None
+            # 1. Khớp theo Stable Episode ID từ URL (?ep_id= / ?ch_id= / ?vid= / #...&vid=) hoặc queue metadata
+            m_id = re.search(r"[?&#](?:ep_id|ch_id|vid)=([A-Za-z0-9_-]+)", self.url)
+            req_id = m_id.group(1) if m_id else self.options.get("episode_id")
+            if req_id:
+                for e in series.episodes:
+                    extra_id = str(
+                        getattr(e, "episode_id", "")
+                        or (e.extra or {}).get("episode_id")
+                        or (e.extra or {}).get("kk_ep")
+                        or (e.extra or {}).get("chapter_id")
+                        or (e.extra or {}).get("cid")
+                        or (e.extra or {}).get("vid")
+                        or ""
+                    )
+                    if extra_id == str(req_id):
+                        matched = e
+                        break
+
+            # 2. Khớp theo Số thứ tự tập (?ep= / #ep= hoặc episode_number), KHÔNG dùng queue index nếu đã có provider/req_id
+            if not matched and not req_id:
+                m_ep = re.search(r"[?&#]ep=(\d+)", self.url)
+                req_num = int(m_ep.group(1)) if m_ep else (
+                    self.options.get("episode_number")
+                    or (None if self.options.get("provider") else self.options.get("item_index"))
+                )
+                if req_num:
+                    for e in series.episodes:
+                        if e.num == int(req_num) or getattr(e, "episode_number", None) == int(req_num):
+                            matched = e
+                            break
+
+            if not matched:
+                raise ValueError(
+                    f"Không tìm thấy tập phim được yêu cầu (ID: {req_id}, Ep: {self.options.get('episode_number') or self.options.get('item_index')}) "
+                    f"trong series '{series.name}'"
+                )
+            return matched
+
+        if not target_ep:
+            target_ep = _load_and_match_episode()
+
+        if target_ep.locked or target_ep.access_state not in ("free", "authorized"):
+            reason = target_ep.access_reason or "yêu cầu mua VIP trên ứng dụng gốc"
+            raise ValueError(f"Tập {target_ep.num} không thể tải ({reason})")
+
+        if not self._is_running:
+            self.task_stopped.emit()
+            return
+
+        ep_id_disp = getattr(target_ep, "episode_id", "") or self.options.get("episode_id") or target_ep.num
+        safe_print(f"[RESOLVE] provider={pid} episode={self._mask_id(ep_id_disp)}")
+
+        stream_url = provider.resolve_episode_stream(target_ep)
+        if (not stream_url or not self._is_valid_resolved_media_url(stream_url)) and is_complete_ep and not series:
+            # Thử làm mới metadata series một lần nếu direct/reconstructed episode thiếu info
+            try:
+                refreshed_ep = _load_and_match_episode()
+                if refreshed_ep.locked or refreshed_ep.access_state not in ("free", "authorized"):
+                    reason = refreshed_ep.access_reason or "yêu cầu mua VIP trên ứng dụng gốc"
+                    raise ValueError(f"Tập {refreshed_ep.num} không thể tải ({reason})")
+                target_ep = refreshed_ep
+                stream_url = provider.resolve_episode_stream(target_ep)
+            except ValueError as ve:
+                if "không thể tải" in str(ve):
+                    raise
+                safe_print(f"[ERROR] provider={pid} phase=resolve reason={ve}")
+            except Exception as ref_err:
+                safe_print(f"[ERROR] provider={pid} phase=resolve reason={ref_err}")
+
+        if not stream_url or not self._is_valid_resolved_media_url(stream_url):
+            raw_reason = getattr(provider, "last_error", None)
+            reason = raw_reason if (isinstance(raw_reason, str) and raw_reason) else "empty_or_invalid_stream"
+            safe_print(f"[ERROR] provider={pid} phase=resolve reason={reason}")
+            raise ValueError(
+                f"Không thể phân giải stream tập {target_ep.num} từ {provider.display_name} "
+                f"(Không thể lấy URL phát trực tiếp cho Tập {target_ep.num})"
+            )
+
+        is_hls = ".m3u8" in stream_url.lower()
+        proto = "hls" if is_hls else "mp4"
+        safe_print(f"[RESOLVE] protocol={proto} status=resolved")
+
+        display_series = series_name or (series.name if series else "Drama")
+        video_title = self.options.get("title") or f"{display_series} - {target_ep.title}"
+        base_name, out_tmpl = self._resolve_filename(out_path, raw_title=video_title)
+
+        merged_headers = {}
+        merged_headers.update(detect_site(self.url) or {})
+        if isinstance(self.options.get("headers"), dict):
+            for hk, hv in self.options["headers"].items():
+                if hk and hv and str(hk).lower() not in ("cookie", "authorization"):
+                    merged_headers[str(hk)] = str(hv)
+        # CDN stream_url headers (ví dụ qznovelvod.com -> hongguoduanju.com) ưu tiên khi đã có quy tắc riêng
+        stream_site_headers = detect_site(stream_url) or {}
+        if stream_site_headers:
+            merged_headers.update(stream_site_headers)
+        if "User-Agent" not in merged_headers:
+            merged_headers["User-Agent"] = DEFAULT_UA
+
+        opts = self.get_base_opts(out_path)
+        self.apply_format_options(opts)
+        opts["outtmpl"] = out_tmpl
+        opts["http_headers"] = merged_headers
+
+        file_type = self.options.get("file_type", "mp4")
+        if file_type != "mp3" and not self.options.get("format_id"):
+            opts["format"] = "best/mp4"
+            opts.pop("postprocessors", None)
+
+        safe_print(f"[DOWNLOAD] url_type={'hls' if is_hls else 'direct'}")
+        safe_print(f"[Drama Downloader] Bắt đầu tải {display_series} (Tập {target_ep.num}) -> {base_name}")
+
+        final_mp4 = os.path.abspath(os.path.join(out_path, f"{base_name}.mp4")) if base_name else out_tmpl
+
+        if getattr(provider, "platform_id", "") == "miniapp_douyin" and is_hls and hasattr(provider, "client"):
+            app_id = target_ep.extra.get("app_id") or getattr(provider, "default_app_id", "tt5b4d2df0c47bdd2201")
+            def _prog(curr, total, speed, msg):
+                if not self._is_running:
+                    return
+                pct = int((curr / total) * 100) if total > 0 else 0
+                self.task_progress.emit(pct)
+                self.status_update.emit(f"TH:1|TIME:00:00:00|DL:{curr}/{total}|SPD:{speed:.1f} MB/s|ETA:Đang tải HLS")
+            ok = provider.client.download_hls_antihook(
+                stream_url, final_mp4, app_id=app_id,
+                progress_cb=_prog,
+                stop_cb=lambda: not self._is_running,
+                ffmpeg_bin=self.get_ffmpeg_path(),
+            )
+            if not ok and not self._is_running:
+                self.task_stopped.emit()
+                return
+            elif not ok:
+                safe_print(f"[ERROR] provider={pid} phase=download http=hls_failed")
+                raise RuntimeError(f"Tải luồng HLS MiniApp Douyin thất bại cho tập {target_ep.num}")
+            safe_print(f"[DOWNLOAD] HTTP=200")
+            safe_print(f"[DOWNLOAD] output={final_mp4}")
+        elif self.options.get("prefer_direct_requests") and not is_hls and file_type != "mp3":
+            try:
+                self.download_direct_stream(stream_url, final_mp4, headers=merged_headers)
+                safe_print(f"[DOWNLOAD] output={final_mp4}")
+            except Exception as dl_err:
+                if "Stopped by user" in str(dl_err) or not self._is_running:
+                    self.task_stopped.emit()
+                    return
+                m_http = re.search(r"HTTP Error (\d+)", str(dl_err))
+                safe_print(f"[ERROR] provider={pid} phase=download http={m_http.group(1) if m_http else 'error'}")
+                raise
+        else:
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    ydl.download([stream_url])
+                safe_print("[DOWNLOAD] HTTP=200/206")
+                safe_print(f"[DOWNLOAD] output={final_mp4}")
+            except Exception as dl_err:
+                if "Stopped by user" in str(dl_err) or not self._is_running:
+                    self.task_stopped.emit()
+                    return
+                err_txt = str(dl_err)
+                m_http = re.search(r"HTTP Error (\d+)", err_txt)
+                http_code = m_http.group(1) if m_http else ""
+                if http_code in ("403", "404", "401"):
+                    safe_print(f"[ERROR] provider={pid} phase=download http={http_code}")
+                    raise
+                if not is_hls and file_type != "mp3":
+                    try:
+                        self.download_direct_stream(stream_url, final_mp4, headers=merged_headers)
+                        safe_print(f"[DOWNLOAD] output={final_mp4}")
+                    except Exception as direct_err:
+                        if "Stopped by user" in str(direct_err) or not self._is_running:
+                            self.task_stopped.emit()
+                            return
+                        m_dh = re.search(r"HTTP Error (\d+)", str(direct_err))
+                        safe_print(f"[ERROR] provider={pid} phase=download http={m_dh.group(1) if m_dh else 'error'}")
+                        raise direct_err
+                else:
+                    safe_print(f"[ERROR] provider={pid} phase=download http={http_code or 'error'}")
+                    raise
+
+        if not self._is_running:
+            self.task_stopped.emit()
+            return
+
+        # Tải phụ đề kèm theo với kiểm tra đường dẫn an toàn (Path Traversal Protection)
+        if target_ep.subtitles:
+            for sub in target_ep.subtitles:
+                if not self._is_running:
+                    self.task_stopped.emit()
+                    return
+                try:
+                    safe_lang = re.sub(r"[^a-zA-Z0-9_-]", "", str(sub.lang or "sub"))[:20] or "sub"
+                    abs_out = os.path.abspath(out_path)
+                    sub_file = os.path.abspath(os.path.join(abs_out, f"{base_name}.{safe_lang}.srt"))
+                    if os.path.commonpath([sub_file, abs_out]) != abs_out:
+                        safe_print(f"[SECURITY] Bỏ qua phụ đề do tên không an toàn (path traversal): {sub_file}")
+                        continue
+
+                    sub_resp = provider.session.get(sub.url, timeout=10)
+                    if sub_resp.status_code == 200:
+                        content = sub_resp.text
+                        if "WEBVTT" in content:
+                            content = vtt_to_srt(content)
+                        with open(sub_file, "w", encoding="utf-8") as sf:
+                            sf.write(content)
+                        safe_print(f"[Drama Downloader] Đã lưu phụ đề: {sub_file}")
+                    else:
+                        msg = f"Cảnh báo: Tải phụ đề [{safe_lang}] thất bại (HTTP {sub_resp.status_code})"
+                        safe_print(f"[Drama Subtitle] {msg}")
+                        self.status_update.emit(msg)
+                except Exception as sub_err:
+                    msg = f"Cảnh báo: Lỗi tải phụ đề {sub.lang}: {sub_err}"
+                    safe_print(f"[Drama Subtitle] {msg}")
+                    self.status_update.emit(msg)
+
+        if not self._is_running:
+            self.task_stopped.emit()
+            return
+
+        self.task_finished.emit()
+
     def run(self):
         try:
-            self.url = normalize_url(self.url)
+            is_drama = self._is_drama_task()
+            if not is_drama:
+                self.url = normalize_url(self.url)
             out_path = self.options.get("output_path", "downloads")
             if not os.path.exists(out_path):
                 os.makedirs(out_path)
@@ -594,6 +1026,11 @@ class DownloadWorker(QThread):
             auth_error_encountered = False
 
             if not self._is_running:
+                return
+
+            # === Phim ngắn (Short Drama Downloader: Hongguo, DramaBox, KissKH, MiniApp Douyin, v.v.) ===
+            if is_drama or is_drama_url(self.url):
+                self._download_drama_episode(out_path)
                 return
 
             cookies_valid, cookies_status = self._validate_cookies_file()
@@ -827,6 +1264,9 @@ class DownloadWorker(QThread):
                 return
 
         except Exception as e:
+            if "Stopped by user" in str(e) or not self._is_running:
+                self.task_stopped.emit()
+                return
             print(f"[CRITICAL WORKER ERROR] {e}")
             app_logger().exception("Worker crash")
             self.task_error.emit(str(e)[:200] or "Lỗi không xác định")

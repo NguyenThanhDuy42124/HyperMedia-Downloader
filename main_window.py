@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSpinBox,
     QSplitter,
+    QTabWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -450,14 +451,47 @@ class YoutubeDownloaderApp(QMainWindow):
         self.setMinimumSize(1120, 700)
         central = QWidget()
         self.setCentralWidget(central)
-        vbox = QVBoxLayout(central)
+        root_vbox = QVBoxLayout(central)
+        root_vbox.setContentsMargins(6, 6, 6, 6)
+        root_vbox.setSpacing(0)
+
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #2d3748;
+                border-radius: 8px;
+                background-color: #0f1015;
+            }
+            QTabBar::tab {
+                background: #161822;
+                color: #9ca3af;
+                padding: 8px 22px;
+                margin-right: 4px;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QTabBar::tab:selected {
+                background: #2563eb;
+                color: white;
+            }
+            QTabBar::tab:hover:!selected {
+                background: #232736;
+                color: #e5e7eb;
+            }
+        """)
+
+        # Tab 1: Video & Hàng đợi tải
+        tab_download = QWidget()
+        vbox = QVBoxLayout(tab_download)
         vbox.setSpacing(8)
-        vbox.setContentsMargins(10, 8, 10, 8)
+        vbox.setContentsMargins(6, 6, 6, 6)
 
         # ---------- Top bar: URL + Quét + Giới hạn + Cookie + Status ----------
         top = QHBoxLayout()
         self.url_inp = QLineEdit()
-        self.url_inp.setPlaceholderText("Link YouTube / Bilibili (video, playlist, space)...")
+        self.url_inp.setPlaceholderText("Link YouTube / Bilibili / Douyin / Phim Drama (DramaBox, KissKH)...")
         top.addWidget(self.url_inp, 1)
 
         self.scan_btn = QPushButton(" Quét")
@@ -540,32 +574,36 @@ class YoutubeDownloaderApp(QMainWindow):
         # Floating Contextual Panel (Nổi lơ lửng trên list khi chọn video)
         self.floating_panel = QFrame(self.view)
         self.floating_panel.setObjectName("floatingPanel")
-        self.floating_panel.setFixedHeight(54)
+        self.floating_panel.setFixedHeight(52)
         self.floating_panel.setStyleSheet("""
             QFrame#floatingPanel {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #12121c, stop:1 #1e1e2d);
-                border: 1px solid #383854;
-                border-radius: 10px;
+                background-color: #0f172a;
+                border: 1px solid #334155;
+                border-radius: 8px;
             }
             QLabel {
-                color: #e2e8f0;
-                font-weight: bold;
+                color: #94a3b8;
+                font-weight: 600;
                 font-size: 11px;
                 border: none;
             }
             QComboBox {
-                background: #1e1e2e;
-                color: #ffffff;
-                border: 1px solid #3b4261;
+                background: #1e293b;
+                color: #f8fafc;
+                border: 1px solid #334155;
                 border-radius: 4px;
                 padding: 3px 6px;
                 font-size: 11px;
             }
+            QComboBox:focus {
+                border: 1px solid #3b82f6;
+            }
             QPushButton {
                 font-size: 11px;
-                font-weight: bold;
-                border-radius: 6px;
+                font-weight: 600;
+                border-radius: 5px;
                 padding: 5px 10px;
+                border: none;
             }
         """)
         float_layout = QHBoxLayout(self.floating_panel)
@@ -573,7 +611,7 @@ class YoutubeDownloaderApp(QMainWindow):
         float_layout.setSpacing(8)
 
         self.lbl_float_count = QLabel("Đã chọn: 0")
-        self.lbl_float_count.setStyleSheet("color: #00E5FF; font-size: 12px; font-weight: bold;")
+        self.lbl_float_count.setStyleSheet("background-color: #064e3b; color: #34d399; font-size: 11px; font-weight: bold; border-radius: 4px; padding: 2px 6px;")
         float_layout.addWidget(self.lbl_float_count)
 
         self.bulk_type_cb = QComboBox()
@@ -596,19 +634,20 @@ class YoutubeDownloaderApp(QMainWindow):
 
         btn_apply = QPushButton(" Áp dụng")
         btn_apply.setIcon(get_lucide_icon("check", "#ffffff", 14))
-        btn_apply.setStyleSheet("background:#FF9800; color:white; font-weight:bold;")
+        btn_apply.setStyleSheet("background-color: #2563eb; color: white; font-weight: bold;")
         btn_apply.clicked.connect(self.apply_bulk_changes)
         float_layout.addWidget(btn_apply)
 
-        self.btn_dl_selected = QPushButton(" TẢI ĐÃ CHỌN")
+        self.btn_dl_selected = QPushButton(" Tải đã chọn")
         self.btn_dl_selected.setIcon(get_lucide_icon("download", "#ffffff", 14))
-        self.btn_dl_selected.setStyleSheet("background:#0284c7; color:white; font-weight:bold; font-size:11px; padding:5px 12px;")
+        self.btn_dl_selected.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #10b981, stop:1 #059669); color: white; font-weight: bold; padding: 5px 12px;")
         self.btn_dl_selected.clicked.connect(self.download_selected)
         float_layout.addWidget(self.btn_dl_selected)
 
-        self.btn_dl_thumb = QPushButton(" TẢI THUMBNAIL")
+        self.btn_dl_thumb = QPushButton(" Tải Thumbnail")
         self.btn_dl_thumb.setIcon(get_lucide_icon("image", "#ffffff", 14))
-        self.btn_dl_thumb.setStyleSheet("background:#7c3aed; color:white; font-weight:bold; font-size:11px; padding:5px 12px;")
+        self.btn_dl_thumb.setStyleSheet("background-color: #334155; color: white; font-weight: 600; padding: 5px 12px;")
+        self.btn_dl_thumb.clicked.connect(self.download_selected_thumbnails)
         self.btn_dl_thumb.clicked.connect(self.download_selected_thumbnails)
         float_layout.addWidget(self.btn_dl_thumb)
 
@@ -645,10 +684,10 @@ class YoutubeDownloaderApp(QMainWindow):
         btn_clear_log.clicked.connect(lambda: self.log_edit.clear())
         log_head.addWidget(btn_clear_log)
 
-        self.btn_toggle_log = QPushButton(" Ẩn Log")
-        self.btn_toggle_log.setIcon(get_lucide_icon("chevron-down", "#ffffff", 12))
-        self.btn_toggle_log.setFixedSize(85, 24)
-        self.btn_toggle_log.setStyleSheet("font-size:10px;background:#0284c7;color:white;font-weight:bold;border-radius:3px;")
+        self.btn_toggle_log = QPushButton(" Hiện Log")
+        self.btn_toggle_log.setIcon(get_lucide_icon("chevron-up", "#ffffff", 12))
+        self.btn_toggle_log.setFixedSize(92, 24)
+        self.btn_toggle_log.setStyleSheet("font-size:11px;background:#1e293b;color:#e2e8f0;font-weight:600;border-radius:4px;border:1px solid #334155;")
         self.btn_toggle_log.clicked.connect(self.toggle_log_panel)
         log_head.addWidget(self.btn_toggle_log)
 
@@ -657,6 +696,7 @@ class YoutubeDownloaderApp(QMainWindow):
         self.log_edit = QTextEdit()
         self.log_edit.setReadOnly(True)
         self.log_edit.setFixedHeight(140)
+        self.log_edit.setVisible(False)
         self.log_edit.setStyleSheet("""
             QTextEdit {
                 background-color: #060609;
@@ -718,38 +758,91 @@ class YoutubeDownloaderApp(QMainWindow):
         self.btn_dl_all.setIcon(get_lucide_icon("download", "#ffffff", 16))
         self.btn_dl_all.setIconSize(QSize(16, 16))
         self.btn_dl_all.clicked.connect(self.download_all)
-        self.btn_dl_all.setFixedHeight(38)
+        self.btn_dl_all.setFixedHeight(40)
         self.btn_dl_all.setStyleSheet("""
-            QPushButton { background:#00C853; color:white; font-weight:bold; font-size:12px; border-radius:5px; padding:2px 6px; }
-            QPushButton:disabled { background:#1b432c; color:#66a57f; }
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #10b981, stop:1 #059669);
+                color: #ffffff;
+                font-weight: bold;
+                font-size: 13px;
+                border: none;
+                border-radius: 6px;
+                padding: 4px 8px;
+            }
+            QPushButton:hover {
+                background: #10b981;
+            }
+            QPushButton:disabled {
+                background: #1e293b;
+                color: #64748b;
+            }
         """)
         pv.addWidget(self.btn_dl_all)
 
-        self.btn_dl_all_thumb = QPushButton(" Tải Thumbnail Tất Cả")
-        self.btn_dl_all_thumb.setIcon(get_lucide_icon("image", "#ffffff", 14))
-        self.btn_dl_all_thumb.setStyleSheet("background:#6366f1;color:white;font-weight:bold;font-size:11px;border-radius:4px;padding:4px 6px;")
-        self.btn_dl_all_thumb.clicked.connect(self.download_all_thumbnails)
-        pv.addWidget(self.btn_dl_all_thumb)
+        # Hàng nút tác vụ phụ gọn gàng (2 cột)
+        row_sub = QHBoxLayout()
+        row_sub.setSpacing(6)
 
-        self.btn_retry = QPushButton(" Thử lại file lỗi")
-        self.btn_retry.setIcon(get_lucide_icon("rotate-cw", "#ffffff", 16))
-        self.btn_retry.setStyleSheet("background:#334155;color:white;font-weight:bold;")
+        self.btn_dl_all_thumb = QPushButton(" Tải Thumbnail")
+        self.btn_dl_all_thumb.setIcon(get_lucide_icon("image", "#ffffff", 14))
+        self.btn_dl_all_thumb.setStyleSheet("""
+            QPushButton {
+                background-color: #4f46e5;
+                color: white;
+                font-weight: 600;
+                font-size: 11px;
+                border-radius: 6px;
+                padding: 6px 8px;
+                border: none;
+            }
+            QPushButton:hover { background-color: #6366f1; }
+        """)
+        self.btn_dl_all_thumb.clicked.connect(self.download_all_thumbnails)
+        row_sub.addWidget(self.btn_dl_all_thumb, 1)
+
+        self.btn_retry = QPushButton(" Thử lại lỗi")
+        self.btn_retry.setIcon(get_lucide_icon("rotate-cw", "#ffffff", 14))
+        self.btn_retry.setStyleSheet("""
+            QPushButton {
+                background-color: #334155;
+                color: white;
+                font-weight: 600;
+                font-size: 11px;
+                border-radius: 6px;
+                padding: 6px 8px;
+                border: none;
+            }
+            QPushButton:hover { background-color: #475569; }
+        """)
         self.btn_retry.clicked.connect(self.retry_errors)
-        pv.addWidget(self.btn_retry)
+        row_sub.addWidget(self.btn_retry, 1)
+        pv.addLayout(row_sub)
 
         line1 = QFrame()
         line1.setFrameShape(QFrame.Shape.HLine)
-        line1.setStyleSheet("color:#333333;")
+        line1.setStyleSheet("color:#27273a;")
         pv.addWidget(line1)
 
-        # 2. CẤU HÌNH BĂNG THÔNG & AV1 SMART TRICK
-        self.advanced_group = QGroupBox("Cài đặt nâng cao")
+        # 2. CẤU HÌNH BĂNG THÔNG & AV1 SMART TRICK (Thu gọn mặc định - Progressive Disclosure)
+        self.advanced_group = QGroupBox("Cài đặt nâng cao (Băng thông, Tiền tố)")
         self.advanced_group.setCheckable(True)
         self.advanced_group.setChecked(False) # Collapsed by default
         self.advanced_group.setStyleSheet("""
-            QGroupBox { font-weight: bold; color: #00E5FF; border: 1px solid #333333; border-radius: 5px; margin-top: 10px; padding-top: 15px; }
-            QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; left: 10px; }
-            QGroupBox::indicator { width: 13px; height: 13px; }
+            QGroupBox {
+                font-weight: bold;
+                color: #38bdf8;
+                border: 1px solid #2d3748;
+                border-radius: 6px;
+                margin-top: 10px;
+                padding-top: 14px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 4px;
+                left: 10px;
+            }
+            QGroupBox::indicator { width: 14px; height: 14px; }
         """)
         
         adv_layout = QVBoxLayout()
@@ -948,15 +1041,19 @@ class YoutubeDownloaderApp(QMainWindow):
         self.search_inp.textChanged.connect(lambda t: self.proxy.set_filter(t))
         pv.addWidget(self.search_inp)
 
-        btn_folder = QPushButton(" Chọn thư mục lưu")
-        btn_folder.setIcon(get_lucide_icon("folder", "#ffffff", 16))
+        row_folder = QHBoxLayout()
+        row_folder.setSpacing(6)
+
+        btn_folder = QPushButton(" Chọn thư mục")
+        btn_folder.setIcon(get_lucide_icon("folder", "#ffffff", 14))
         btn_folder.clicked.connect(self.select_folder)
-        pv.addWidget(btn_folder)
+        row_folder.addWidget(btn_folder, 1)
 
         btn_open = QPushButton(" Mở thư mục")
-        btn_open.setIcon(get_lucide_icon("folder-open", "#ffffff", 16))
+        btn_open.setIcon(get_lucide_icon("folder-open", "#ffffff", 14))
         btn_open.clicked.connect(self.open_folder)
-        pv.addWidget(btn_open)
+        row_folder.addWidget(btn_open, 1)
+        pv.addLayout(row_folder)
 
         pv.addStretch(1)
 
@@ -983,6 +1080,23 @@ class YoutubeDownloaderApp(QMainWindow):
         splitter.setStretchFactor(1, 0)
         splitter.setSizes([1120, 295])
         vbox.addWidget(splitter, 1)
+
+        from drama_browse_widget import DramaBrowseWidget
+        self.drama_browse = DramaBrowseWidget(parent=self)
+        self.drama_browse.queue_episodes_requested.connect(self._on_drama_episodes_queued)
+
+        from miniapp_browse_widget import MiniAppBrowseWidget
+        self.tab_miniapp = MiniAppBrowseWidget(parent=self)
+        self.tab_miniapp.queue_episodes_requested.connect(self._on_drama_episodes_queued)
+        if hasattr(self, "local_server") and self.local_server:
+            self.local_server.cookies_synced.connect(self.drama_browse.on_cookie_synced)
+            self.tab_miniapp._connect_server_signals(self.local_server)
+
+        self.tabs.addTab(tab_download, get_lucide_icon("download", "#ffffff", 14), " Tải Video / Hàng Đợi")
+        self.tabs.addTab(self.drama_browse, get_lucide_icon("film", "#60a5fa", 14), " Khám Phá Phim (Drama)")
+        self.tabs.addTab(self.tab_miniapp, get_lucide_icon("clapperboard", "#ec4899", 14), " MiniApp Douyin")
+
+        root_vbox.addWidget(self.tabs, 1)
 
         # ---------- Status bar: Đường dẫn thư mục + Live Log + Bản quyền + Hướng dẫn ----------
         self.lbl_path = QLabel(f"  Thư mục lưu: {self.save_folder}")
@@ -1090,9 +1204,9 @@ class YoutubeDownloaderApp(QMainWindow):
             QApplication.clipboard().setText(self.log_edit.toPlainText())
 
     def toggle_log_panel(self):
-        if hasattr(self, "log_panel"):
-            is_vis = self.log_panel.isVisible()
-            self.log_panel.setVisible(not is_vis)
+        if hasattr(self, "log_edit"):
+            is_vis = self.log_edit.isVisible()
+            self.log_edit.setVisible(not is_vis)
             if hasattr(self, "btn_toggle_log"):
                 if is_vis:
                     self.btn_toggle_log.setText(" Hiện Log")
@@ -1288,7 +1402,7 @@ class YoutubeDownloaderApp(QMainWindow):
         print(f"[SCAN ERROR] Lỗi quét: {err}")
         self._scan_next(br)
 
-    def add_item(self, t, u, th, heights, formats_list=None):
+    def add_item(self, t, u, th, heights, formats_list=None, extra_meta=None):
         # Tự động thay thế bằng tiêu đề và thumbnail thật nếu có từ Extension hoặc Clipboard
         if hasattr(self, "_custom_metadata"):
             meta = self._custom_metadata.get(u)
@@ -1303,17 +1417,80 @@ class YoutubeDownloaderApp(QMainWindow):
                 if meta.get("thumb"):
                     th = meta["thumb"]
 
-        uid = self.model.add_video(
-            {
-                "title": t,
-                "url": u,
-                "thumb_url": th,
-                "heights": heights,
-                "formats_list": formats_list or [],
-            }
-        )
+        item_dict = {
+            "title": t,
+            "url": u,
+            "thumb_url": th,
+            "heights": heights,
+            "formats_list": formats_list or [],
+        }
+        if extra_meta and isinstance(extra_meta, dict):
+            item_dict.update(extra_meta)
+
+        uid = self.model.add_video(item_dict)
         if th:
             self.thumb_pool.request(uid, th)
+        return uid
+
+    def _on_drama_episodes_queued(self, queue_items, series_name):
+        """Tiếp nhận danh sách tập phim từ tab Khám Phá Phim hoặc MiniApp và đưa vào hàng đợi tải."""
+        added_uids = []
+        for it in queue_items:
+            prov = it.get("provider") or it.get("provider_id") or it.get("platform") or ""
+            ep_id_val = str(it.get("episode_id") or "")
+            ep_num_val = it.get("episode_number") if it.get("episode_number") is not None else it.get("item_index")
+            acc_state = it.get("access_state") or ("requires_vip" if it.get("locked") else "free")
+            masked_ep = f"{ep_id_val[:6]}***" if len(ep_id_val) > 6 else (ep_id_val or f"ep{ep_num_val}")
+            print(f"[QUEUE] provider={prov} episode={masked_ep} access={acc_state}")
+
+            out_dir = it.get("output_dir") or self.save_folder
+            if out_dir and not os.path.exists(out_dir):
+                os.makedirs(out_dir, exist_ok=True)
+
+            extra = {
+                "output_dir": out_dir,
+                "exact_file_stem": it.get("exact_file_stem"),
+                "series_id": it.get("series_id"),
+                "series_name": it.get("series_name") or series_name,
+                "provider": prov,
+                "provider_id": it.get("provider_id") or prov,
+                "platform": it.get("platform") or prov,
+                "source_app_id": it.get("source_app_id"),
+                "source_name": it.get("source_name"),
+                "source_display_name": it.get("source_display_name"),
+                "episode_number": ep_num_val,
+                "episode_id": ep_id_val,
+                "access_state": acc_state,
+                "locked": bool(it.get("locked", False)),
+                "source_url": it.get("source_url") or it.get("url"),
+                "direct_url": it.get("direct_url"),
+                "expires_at": it.get("expires_at"),
+                "subtitle_url": it.get("subtitle_url"),
+                "subtitles": it.get("subtitles") or [],
+                "headers": dict(it.get("headers") or {}),
+                "extra": dict(it.get("extra") or {}),
+                "item_index": it.get("item_index") or ep_num_val,
+            }
+            uid = self.add_item(
+                it["title"],
+                it["url"],
+                it.get("thumb", ""),
+                it.get("heights") or [],
+                it.get("formats") or [],
+                extra_meta=extra,
+            )
+            if uid:
+                added_uids.append(uid)
+
+        # Chuyển về Tab 0 (Danh sách tải về)
+        self.tabs.setCurrentIndex(0)
+        self.status_label.setText(f"Đã thêm {len(queue_items)} tập phim '{series_name}' vào hàng đợi.")
+
+        # Cuộn và highlight các item vừa thêm
+        if added_uids and hasattr(self, "video_list"):
+            last_idx = self.model.index_for_uid(added_uids[-1])
+            if last_idx.isValid():
+                self.video_list.scrollTo(last_idx)
 
     def on_thumb_ready(self, uid, pixmap):
         self.model.set_thumb(uid, pixmap)
@@ -1463,8 +1640,30 @@ class YoutubeDownloaderApp(QMainWindow):
         film_name = self.txt_film_name.text().strip() if hasattr(self, "txt_film_name") else ""
         allow_duplicates = self.chk_allow_dup.isChecked() if hasattr(self, "chk_allow_dup") else False
 
+        prov = item.get("provider") or item.get("provider_id") or item.get("platform")
         base = {
-            "output_path": self.save_folder,
+            "uid": uid,
+            "output_path": item.get("output_dir") or self.save_folder,
+            "exact_file_stem": item.get("exact_file_stem"),
+            "series_id": item.get("series_id"),
+            "series_name": item.get("series_name"),
+            "provider": prov,
+            "provider_id": item.get("provider_id") or prov,
+            "platform": item.get("platform") or prov,
+            "source_name": item.get("source_name"),
+            "source_app_id": item.get("source_app_id"),
+            "source_display_name": item.get("source_display_name"),
+            "episode_number": item.get("episode_number") if (prov or item.get("episode_number") is not None) else item_index,
+            "episode_id": item.get("episode_id"),
+            "access_state": item.get("access_state"),
+            "locked": item.get("locked"),
+            "source_url": item.get("source_url") or item.get("url"),
+            "direct_url": item.get("direct_url"),
+            "expires_at": item.get("expires_at"),
+            "subtitle_url": item.get("subtitle_url"),
+            "subtitles": item.get("subtitles"),
+            "headers": item.get("headers"),
+            "extra": item.get("extra"),
             "browser": self.browser_cb.currentText(),
             "available_heights": list(item.get("heights") or []),
             "skip_existing": self.chk_skip.isChecked() and not allow_duplicates,
@@ -1473,7 +1672,7 @@ class YoutubeDownloaderApp(QMainWindow):
             "av1_smart_trick": use_av1,
             "format_id": item.get("format_id"),
             "title": item.get("title", ""),
-            "item_index": item_index,
+            "item_index": item.get("item_index") or item_index,
             "prefix_enabled": prefix_enabled,
             "prefix_mode": prefix_mode,
             "prefix_pattern": prefix_mode,
@@ -1649,6 +1848,8 @@ class YoutubeDownloaderApp(QMainWindow):
         if self._is_downloading:
             # Vừa add vừa tải: Thêm các video mới vào hàng đợi đang chạy
             added = 0
+            if not hasattr(self, "_current_batch_uids"):
+                self._current_batch_uids = set()
             for uid in uids:
                 if uid not in self._pending_uids and uid not in self._active:
                     item = self.model.get(uid)
@@ -1656,6 +1857,7 @@ class YoutubeDownloaderApp(QMainWindow):
                         self.model.set_status(uid, "queued")
                         self.model.set_progress(uid, 0)
                         self._pending_uids.append(uid)
+                        self._current_batch_uids.add(uid)
                         added += 1
             if added > 0:
                 print(f"[QUEUE UPDATE] Đã thêm {added} video mới vào hàng đợi đang tải...")
@@ -1669,6 +1871,7 @@ class YoutubeDownloaderApp(QMainWindow):
         self.btn_stop.setEnabled(True)
         self.status_label.setText("Bắt đầu tải...")
         self._pending_uids = deque()
+        self._current_batch_uids = set(uids)
         for uid in uids:
             item = self.model.get(uid)
             if item is None:
@@ -1726,6 +1929,8 @@ class YoutubeDownloaderApp(QMainWindow):
                     self.model.set_status(uid, "downloading")
                     self.model.set_progress(uid, 0)
                     worker = DownloadWorker(item["url"], self._build_options(item), parent=self)
+                    if getattr(worker, "exact_file_stem", None):
+                        item["exact_file_stem"] = worker.exact_file_stem
                     worker.task_progress.connect(lambda p, u=uid: self.model.set_progress(u, p))
                     worker.status_update.connect(lambda s, u=uid: self._on_status_update(u, s))
                     worker.task_finished.connect(lambda u=uid: self._on_worker_done(u))
@@ -1774,40 +1979,74 @@ class YoutubeDownloaderApp(QMainWindow):
         self.view.viewport().update()
 
     def _cleanup_part_files(self, uid=None):
+        """Dọn dẹp file .part bằng đường dẫn đích danh (exact file stem) của chính UID.
+        Tuyệt đối không quét wildcard toàn thư mục, không phụ thuộc vào so khớp chuỗi lỏng lẻo."""
+        if not uid:
+            return
+
         try:
             import glob
-            out_dir = self.save_folder or os.path.join(os.getcwd(), "downloads")
-            if not os.path.exists(out_dir):
+            item = self.model.get(uid) if hasattr(self, "model") and self.model else None
+            worker = self._active.get(uid) if hasattr(self, "_active") and self._active else None
+
+            exact_stem = None
+            if worker and getattr(worker, "exact_file_stem", None):
+                exact_stem = worker.exact_file_stem
+            elif item and item.get("exact_file_stem"):
+                exact_stem = item.get("exact_file_stem")
+
+            if not exact_stem:
+                print(f"[DỌN DẸP BỎ QUA] UID {uid} không có exact_file_stem được lưu trước. Bỏ qua cleanup để bảo đảm an toàn.")
                 return
 
-            title = ""
-            if uid:
-                item = self.model.get(uid)
-                if item:
-                    title = item.get("title", "")
-            
-            safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:40]
-            cleaned = 0
+            # Kiểm tra an toàn: nếu có worker khác đang chạy cùng exact_stem -> bỏ qua ngay
+            active_stems = []
+            if hasattr(self, "_active") and self._active:
+                for a_uid, a_w in list(self._active.items()):
+                    if a_uid != uid and hasattr(a_w, "isRunning") and a_w.isRunning():
+                        w_stem = getattr(a_w, "exact_file_stem", None)
+                        if not w_stem:
+                            a_item = self.model.get(a_uid) if hasattr(self, "model") and self.model else None
+                            if a_item:
+                                w_stem = a_item.get("exact_file_stem")
+                        if w_stem:
+                            active_stems.append(os.path.normcase(os.path.abspath(w_stem)))
 
-            for pattern in ("*.part", "*.ytdl", "*.part-Frag*", "*.temp"):
-                for pf in glob.glob(os.path.join(out_dir, pattern)):
-                    try:
-                        fname = os.path.basename(pf)
-                        # Bỏ đuôi .part / .ytdl để tìm file video hoàn thành tương ứng
-                        base_target = pf[:-5] if pf.endswith((".part", ".ytdl")) else pf
-                        is_target_ready = os.path.exists(base_target) and os.path.getsize(base_target) > 1024
-                        
-                        # Điều kiện xóa:
-                        # 1. Đã có file video hoàn chỉnh tương ứng
-                        # 2. Hoặc video cụ thể này đã xong (uid match title)
-                        if is_target_ready or (safe_title and safe_title.lower() in fname.lower()):
-                            os.remove(pf)
+            norm_exact = os.path.normcase(os.path.abspath(exact_stem))
+            if norm_exact in active_stems:
+                print(f"[DỌN DẸP AN TOÀN] Bỏ qua dọn .part cho UID {uid} do trùng exact file stem với worker đang chạy khác.")
+                return
+
+            cleaned = 0
+            stems = [exact_stem]
+            if " " in exact_stem:
+                stems.append(exact_stem.replace(" ", "_"))
+            if "_" in exact_stem:
+                stems.append(exact_stem.replace("_", " "))
+
+            # 1. Xóa đích danh các biến thể file part/temp của đúng exact_stem này
+            for s in stems:
+                for ext in (".part", ".ytdl", ".temp", ".mp4.part", ".mkv.part", ".webm.part", ".mp3.part"):
+                    target_f = s + ext
+                    if os.path.exists(target_f):
+                        try:
+                            os.remove(target_f)
                             cleaned += 1
-                            print(f"[DỌN DẸP] Đã dọn file tạm rác: {fname}")
+                            print(f"[DỌN DẸP EXACT PATH] Đã dọn file tạm: {os.path.basename(target_f)}")
+                        except OSError:
+                            pass
+
+                # 2. Xóa đích danh các fragment của đúng exact_stem này
+                for frag in glob.glob(glob.escape(s) + "*.part-Frag*"):
+                    try:
+                        os.remove(frag)
+                        cleaned += 1
+                        print(f"[DỌN DẸP EXACT FRAG] Đã dọn fragment: {os.path.basename(frag)}")
                     except OSError:
                         pass
+
             if cleaned > 0:
-                print(f"[DỌN DẸP HOÀN TẤT] Đã dọn {cleaned} file .part dở dang sau khi hoàn thành!")
+                print(f"[DỌN DẸP HOÀN TẤT] Đã dọn {cleaned} file .part dở dang cho UID {uid}!")
         except Exception as e:
             print(f"[DỌN DẸP LỖI] {e}")
 
@@ -1844,6 +2083,28 @@ class YoutubeDownloaderApp(QMainWindow):
 
         # GIẢI PHÓNG VÀ KÍCH HOẠT NGAY TẬP TIẾP THEO trong hàng đợi!
         self._pump_queue()
+
+        err_str = str(err or "")
+        non_retryable = any(
+            k in err_str
+            for k in (
+                "không thể tải",
+                "VIP",
+                "Không thể phân giải stream",
+                "Không tìm thấy tập phim",
+                "HTTP Error 403",
+                "HTTP Error 404",
+                "HTTP 403",
+                "HTTP 404",
+                "HTTP 401",
+            )
+        )
+        if non_retryable:
+            err_msg = f"TH:16|TIME:Thất bại|DL:{err_str[:48]}|SPD:Đã dừng|ETA:Bấm thử lại"
+            self.model.set_status(uid, "error", err_msg)
+            self.view.viewport().update()
+            app_logger().error("Non-retryable download error uid=%s: %s", uid, err_str)
+            return
 
         if count <= max_retries:
             delay_sec = min(15, 2 * min(count, 5))
@@ -1918,19 +2179,22 @@ class YoutubeDownloaderApp(QMainWindow):
         self.status_label.setText("Sẵn sàng")
         self.save_session_now()
         
-        # Dọn dẹp quét lại lần cuối các file part rác
-        self._cleanup_part_files()
+        # Quét danh sách các video bị lỗi hoặc bị dừng thuộc đúng batch tải này
+        batch_uids = getattr(self, "_current_batch_uids", None)
+        uids_to_check = [u for u in self.model.uids() if batch_uids is None or u in batch_uids]
 
-        # Quét danh sách các video bị lỗi hoặc bị dừng
         failed_items = []
         stopped_items = []
-        for uid in self.model.uids():
+        for uid in uids_to_check:
             it = self.model.get(uid)
             if it:
                 if it.get("status") == "error":
                     failed_items.append(it)
                 elif it.get("status") == "stopped":
                     stopped_items.append(it)
+
+        # Reset batch UIDs sau khi tổng kết xong
+        self._current_batch_uids = set()
 
         if was_stopped:
             # Thông báo khi người dùng bấm DỪNG
@@ -1965,11 +2229,19 @@ class YoutubeDownloaderApp(QMainWindow):
             )
             QMessageBox.warning(self, "Thông Báo Kết Quả Tải Video", msg)
         else:
-            QMessageBox.information(
-                self,
-                "Tải Hoàn Tất",
-                f"Chúc mừng! Đã tải thành công toàn bộ {self._completed_ok} video về máy!"
-            )
+            if self._completed_ok > 0:
+                QMessageBox.information(
+                    self,
+                    "Tải Hoàn Tất",
+                    f"Chúc mừng! Đã tải thành công toàn bộ {self._completed_ok} video về máy!"
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Thông Báo Kết Quả",
+                    "Quá trình tải kết thúc nhưng không có video nào hoàn thành thành công.\n"
+                    "Vui lòng kiểm tra lại log chi tiết hoặc kết nối / cookies của video."
+                )
 
     # ---------------------------------------------------------------
     # Folder / cookies
@@ -2180,12 +2452,29 @@ class YoutubeDownloaderApp(QMainWindow):
 
     def closeEvent(self, event):
         self._stop_requested = True
-        for w in list(self._active.values()):
+        terminated_uids = []
+        for uid, w in list(self._active.items()):
             try:
                 w.stop()
                 w.requestInterruption()
                 w.quit()
-                w.wait(800)
+                if not w.wait(1500):
+                    w.terminate()
+                    w.wait(300)
+                    terminated_uids.append(uid)
+            except Exception:
+                pass
+        # Chỉ dọn dẹp part files của đúng các UID bị terminate sau khi worker đã bị kết thúc
+        for uid in terminated_uids:
+            self._cleanup_part_files(uid=uid)
+        if hasattr(self, "drama_browse"):
+            try:
+                self.drama_browse.shutdown()
+            except Exception:
+                pass
+        if hasattr(self, "tab_miniapp"):
+            try:
+                self.tab_miniapp.shutdown()
             except Exception:
                 pass
         if hasattr(self, "local_server"):
